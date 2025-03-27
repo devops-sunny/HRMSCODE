@@ -1,151 +1,85 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import React from "react";
+import { useForm, useFieldArray, FormProvider } from "react-hook-form";
+import { yupResolver } from "@hookform/resolvers/yup";
+import * as yup from "yup";
 
-// Define interfaces for our data structures
-interface MainTabItem {
-  id: string;
+import { useFormContext } from "react-hook-form";
+
+interface RHFTextFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  name: string;
   label: string;
-  icon: string;
-  href: string;
 }
 
-interface SubTabItem {
-  id: string;
-  label: string;
-  href: string;
-}
-
-interface SettingsPageProps {
-  mainTabs: MainTabItem[];
-  subTabs: { [key: string]: SubTabItem[] };
-}
-
-const SettingsPage: React.FC<SettingsPageProps> = ({ mainTabs, subTabs }) => {
-  // State to manage active main and sub tabs
-  const [activeMainTab, setActiveMainTab] = useState(mainTabs[0].id);
-  const [activeSubTab, setActiveSubTab] = useState(
-    subTabs[activeMainTab] ? subTabs[activeMainTab][0].id : ''
-  );
-
-  // Handler for main tab change
-  const handleMainTabChange = (tabId: string) => {
-    setActiveMainTab(tabId);
-    // Reset sub tab to first item when main tab changes
-    setActiveSubTab(subTabs[tabId] ? subTabs[tabId][0].id : '');
-  };
-
-  // Handler for sub tab change
-  const handleSubTabChange = (tabId: string) => {
-    setActiveSubTab(tabId);
-  };
+ function RHFTextField({ name, label, ...rest }: RHFTextFieldProps) {
+  const { register } = useFormContext();
 
   return (
-    <div className="settings-container">
-      {/* Main Tabs Navigation */}
-      <ul className="nav nav-tabs nav-tabs-solid bg-transparent border-bottom mb-3">
-        {mainTabs.map((tab) => (
-          <li key={tab.id} className="nav-item">
-            <a
-              href="#"
-              className={`nav-link ${activeMainTab === tab.id ? 'active' : ''}`}
-              onClick={() => handleMainTabChange(tab.id)}
-            >
-              <i className={`${tab.icon} me-2`}></i>
-              {tab.label}
-            </a>
-          </li>
-        ))}
-      </ul>
-
-      <div className="row">
-        {/* Sidebar Sub Tabs */}
-        <div className="col-xl-3 theiaStickySidebar">
-          <Card>
-            <CardContent>
-              <div className="d-flex flex-column list-group settings-list">
-                {subTabs[activeMainTab]?.map((subTab) => (
-                  <a
-                    key={subTab.id}
-                    href="#"
-                    className={`d-inline-flex align-items-center rounded ${
-                      activeSubTab === subTab.id ? 'active' : ''
-                    } py-2 px-3`}
-                    onClick={() => handleSubTabChange(subTab.id)}
-                  >
-                    <i className="ti ti-arrow-badge-right me-2"></i>
-                    {subTab.label}
-                  </a>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Main Content Area */}
-        <div className="col-xl-9">
-          <Card>
-            <CardContent>
-              {/* Render content based on active main and sub tabs */}
-              {renderSettingsContent(activeMainTab, activeSubTab)}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+    <div className="input-container">
+      <label>{label}</label>
+      <input {...register(name)} {...rest} />
     </div>
   );
-};
+}
 
-// Dynamic content rendering function
-const renderSettingsContent = (mainTabId: string, subTabId: string) => {
-  // You would replace this with actual content rendering logic
-  return (
-    <div>
-      <h4>
-        Settings for {mainTabId} - {subTabId}
-      </h4>
-      {/* Add dynamic content rendering logic here */}
-    </div>
-  );
-};
 
-// Example usage
-const App: React.FC = () => {
-  // Define your main and sub tabs here
-  const mainTabsData: MainTabItem[] = [
-    {
-      id: 'general',
-      label: 'General Settings',
-      icon: 'ti ti-settings',
-      href: '#general',
-    },
-    {
-      id: 'website',
-      label: 'Website Settings',
-      icon: 'ti ti-world-cog',
-      href: '#website',
-    },
-    // Add more main tabs as needed
-  ];
+interface FormValues {
+  users: { firstName: string; lastName: string }[];
+}
 
-  const subTabsData: { [key: string]: SubTabItem[] } = {
-    general: [
-      { id: 'profile', label: 'Profile Settings', href: '#profile' },
-      { id: 'security', label: 'Security Settings', href: '#security' },
-      { id: 'notifications', label: 'Notifications', href: '#notifications' },
-    ],
-    website: [
-      { id: 'design', label: 'Design Settings', href: '#design' },
-      { id: 'seo', label: 'SEO Settings', href: '#seo' },
-    ],
-    // Add more sub tabs for each main tab
-  };
+const validationSchema = yup.object().shape({
+  users: yup.array().of(
+    yup.object().shape({
+      firstName: yup.string().required("First Name is required"),
+      lastName: yup.string().required("Last Name is required"),
+    })
+  ),
+});
+
+export default function App() {
+  const methods = useForm<FormValues>({
+    resolver: yupResolver(validationSchema),
+    defaultValues: { users: [{ firstName: "Bill", lastName: "Luo" }] },
+  });
+
+  const { control, handleSubmit, reset } = methods;
+  const { fields, append, remove } = useFieldArray({ control, name: "users" });
+
+  const onSubmit = (data: FormValues) => console.log("Submitted Data:", data);
 
   return (
-    <SettingsPage 
-      mainTabs={mainTabsData} 
-      subTabs={subTabsData} 
-    />
-  );
-};
+    <FormProvider {...methods}>
+      <form onSubmit={handleSubmit(onSubmit)} className="form-container">
+        <h1>Field Array Example</h1>
+        <p>The following demo allows you to add, delete, and reset fields</p>
 
-export default App;
+        <div className="field-array">
+          {fields.map((item, index) => (
+            <div key={item.id} className="field-group">
+              <RHFTextField name={`users.${index}.firstName`} label="First Name" />
+              <RHFTextField name={`users.${index}.lastName`} label="Last Name" />
+              <button type="button" onClick={() => remove(index)} className="delete-btn">
+                DELETE
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="button-group">
+          <button type="button" onClick={() => append({ firstName: "", lastName: "" })}>
+            ADD MORE
+          </button>
+          <button type="button" onClick={() => remove(fields.length - 1)}>
+            REMOVE LAST
+          </button>
+          <button type="button" onClick={() => reset()}>
+            RESET
+          </button>
+        </div>
+
+        <button type="submit" className="submit-btn">
+          SUBMIT
+        </button>
+      </form>
+    </FormProvider>
+  );
+}
