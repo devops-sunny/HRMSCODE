@@ -17,6 +17,7 @@ export default function ConfirmDialog(props) {
 }
 
 
+// modal-dialog modal-dialog-centered modal-lg
 
 import React, { useEffect, useState } from "react";
 import ConfirmDialog from "../../../components/ConFirmDialog";
@@ -539,3 +540,221 @@ const DoctorForm = ({ handleClose, currentRow }) => {
 };
 
 export default DoctorForm;
+
+
+
+
+
+
+{/* card */}
+
+<div class="row">
+
+<div class="col-lg-3 col-md-6 d-flex">
+  <div class="card flex-fill">
+    <div class="card-body d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center overflow-hidden">
+        <span class="avatar avatar-lg bg-primary flex-shrink-0">
+          <i class="ti ti-building fs-16"></i>
+        </span>
+        <div class="ms-2 overflow-hidden">
+          <p class="fs-12 fw-medium mb-1 text-truncate">Total Companies</p>
+          <h4>950</h4>
+        </div>
+      </div>
+  </div>
+</div>
+</div>
+
+<div class="col-lg-3 col-md-6 d-flex">
+  <div class="card flex-fill">
+    <div class="card-body d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center overflow-hidden">
+        <span class="avatar avatar-lg bg-success flex-shrink-0">
+          <i class="ti ti-building fs-16"></i>
+        </span>
+        <div class="ms-2 overflow-hidden">
+          <p class="fs-12 fw-medium mb-1 text-truncate">Active Companies</p>
+          <h4>920</h4>
+        </div>
+      </div>
+
+  </div>
+</div>
+
+<div class="col-lg-3 col-md-6 d-flex">
+  <div class="card flex-fill">
+    <div class="card-body d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center overflow-hidden">
+        <span class="avatar avatar-lg bg-danger flex-shrink-0">
+          <i class="ti ti-building fs-16"></i>
+        </span>
+        <div class="ms-2 overflow-hidden">
+          <p class="fs-12 fw-medium mb-1 text-truncate">Inactive Companies</p>
+          <h4>30</h4>
+        </div>
+      </div>
+   
+  </div>
+</div>
+</div>
+
+
+<div class="col-lg-3 col-md-6 d-flex">
+  <div class="card flex-fill">
+    <div class="card-body d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center overflow-hidden">
+        <span class="avatar avatar-lg bg-skyblue flex-shrink-0">
+          <i class="ti ti-map-pin-check fs-16"></i>
+        </span>
+        <div class="ms-2 overflow-hidden">
+          <p class="fs-12 fw-medium mb-1 text-truncate">Company Location</p>
+          <h4>180</h4>
+        </div>
+      </div>
+      
+  </div>
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+
+{/* above */}
+
+
+<div class="d-md-flex d-block align-items-center justify-content-between page-breadcrumb mb-3">
+					<div class="my-auto mb-2">
+						<h2 class="mb-1">Companies</h2>
+						<nav>
+							<ol class="breadcrumb mb-0">
+								<li class="breadcrumb-item">
+									<a href="index.html"><i class="ti ti-smart-home"></i></a>
+								</li>
+								<li class="breadcrumb-item">
+									Application
+								</li>
+								<li class="breadcrumb-item active" aria-current="page">Companies List</li>
+							</ol>
+						</nav>
+					</div>
+					<div class="d-flex my-xl-auto right-content align-items-center flex-wrap ">
+						<div class="me-2 mb-2">
+							<div class="dropdown">
+								<a href="javascript:void(0);" class="dropdown-toggle btn btn-white d-inline-flex align-items-center" data-bs-toggle="dropdown" aria-expanded="false">
+									<i class="ti ti-file-export me-1"></i>Export
+								</a>
+								<ul class="dropdown-menu dropdown-menu-end p-3" style="">
+									<li>
+										<a href="javascript:void(0);" class="dropdown-item rounded-1"><i class="ti ti-file-type-pdf me-1"></i>Export as PDF</a>
+									</li>
+									<li>
+										<a href="javascript:void(0);" class="dropdown-item rounded-1"><i class="ti ti-file-type-xls me-1"></i>Export as Excel </a>
+									</li>
+								</ul>
+							</div>
+						</div>
+						<div class="mb-2">
+							<a href="#" data-bs-toggle="modal" data-bs-target="#add_company" class="btn btn-primary d-flex align-items-center"><i class="ti ti-circle-plus me-2"></i>Add Company</a>
+						</div>
+						<div class="ms-2 head-icons">
+							<a href="javascript:void(0);" class="" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-original-title="Collapse" id="collapse-header">
+								<i class="ti ti-chevrons-up"></i>
+							</a>
+						</div>
+					</div>
+</div>
+
+
+{/* Companies List table */}
+
+<div class="card-header d-flex align-items-center justify-content-between flex-wrap row-gap-3">
+						<h5>Companies List</h5>
+						<div class="d-flex my-xl-auto right-content align-items-center flex-wrap row-gap-3">
+							<div class="me-3">
+								<div class="input-icon-end position-relative">
+									<input type="text" class="form-control date-range bookingrange" placeholder="dd/mm/yyyy - dd/mm/yyyy">
+									<span class="input-icon-addon">
+										<i class="ti ti-chevron-down"></i>
+									</span>
+								</div>
+							</div>
+							<div class="dropdown me-3">
+								<a href="javascript:void(0);" class="dropdown-toggle btn btn-white d-inline-flex align-items-center" data-bs-toggle="dropdown" aria-expanded="false">
+									Select Plan
+								</a>
+								<ul class="dropdown-menu dropdown-menu-end p-3" style="">
+									<li>
+										<a href="javascript:void(0);" class="dropdown-item rounded-1">Advanced</a>
+									</li>
+									<li>
+										<a href="javascript:void(0);" class="dropdown-item rounded-1">Basic</a>
+									</li>
+									<li>
+										<a href="javascript:void(0);" class="dropdown-item rounded-1">Enterprise</a>
+									</li>
+								</ul>
+							</div>
+							<div class="dropdown me-3">
+								<a href="javascript:void(0);" class="dropdown-toggle btn btn-white d-inline-flex align-items-center" data-bs-toggle="dropdown" aria-expanded="false">
+									Select Status
+								</a>
+								<ul class="dropdown-menu dropdown-menu-end p-3" style="">
+									<li>
+										<a href="javascript:void(0);" class="dropdown-item rounded-1">Active</a>
+									</li>
+									<li>
+										<a href="javascript:void(0);" class="dropdown-item rounded-1">Inactive</a>
+									</li>
+								</ul>
+							</div>
+							<div class="dropdown">
+								<a href="javascript:void(0);" class="dropdown-toggle btn btn-white d-inline-flex align-items-center" data-bs-toggle="dropdown" aria-expanded="false">
+									Sort By : Last 7 Days
+								</a>
+								<ul class="dropdown-menu dropdown-menu-end p-3" style="">
+									<li>
+										<a href="javascript:void(0);" class="dropdown-item rounded-1">Recently Added</a>
+									</li>
+									<li>
+										<a href="javascript:void(0);" class="dropdown-item rounded-1">Ascending</a>
+									</li>
+									<li>
+										<a href="javascript:void(0);" class="dropdown-item rounded-1">Desending</a>
+									</li>
+									<li>
+										<a href="javascript:void(0);" class="dropdown-item rounded-1">Last Month</a>
+									</li>
+									<li>
+										<a href="javascript:void(0);" class="dropdown-item rounded-1">Last 7 Days</a>
+									</li>
+								</ul>
+							</div>
+						</div>
+					</div>
+
+
+
+{/* modal */}
+
+
+          <div class="modal fade show" id="delete_modal" style="display: block;" aria-modal="true" role="dialog">
+			<div class="modal-dialog modal-dialog-centered modal-sm">
+				<div class="modal-content">
+					<div class="modal-body text-center">
+						<span class="avatar avatar-xl bg-transparent-danger text-danger mb-3">
+							<i class="ti ti-trash-x fs-36"></i>
+						</span>
+						<h4 class="mb-1">Confirm Delete</h4>
+						<p class="mb-3">You want to delete all the marked items, this cant be undone once you delete.</p>
+						<div class="d-flex justify-content-center">
+							<a href="javascript:void(0);" class="btn btn-light me-3" data-bs-dismiss="modal">Cancel</a>
+							<a href="companies.html" class="btn btn-danger">Yes, Delete</a>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
