@@ -9,200 +9,275 @@ import RHFDatePicker from '../../hook-form/RHFDatePicker';
 import RHFSelect from '../../hook-form/RHFSelect';
 import RHFFileUpload from '../../hook-form/RHFFileUpload';
 
-// Define form value interface
-interface BirthRegistrationFormValues {
-  // Registration Details
-  registrationNumber: string;
-  registrationDate: string;
-  hospitalName: string;
-  
-  // Information at Birth
-  childName: string;
-  dateOfBirth: string;
+// Define the interface for form values based on DeathAllDetailsDTO
+interface DeathRegistrationFormValues {
+  // Fields from DeathDetails
+  id: string;
+  registrationNo: string;
+  hospitalId: string; // Dropdown
+  dateOfReport: string;
+  dateOfDeath: string;
+  firstName: string;
+  middleName: string;
+  lastName: string;
+  placeOfDeath: string;
+  informantsName: string;
+  informantsAddress: string;
+  counter: string;
+  tenantId: string;
   gender: 'male' | 'female' | 'other';
-  placeOfBirth: string;
-  weight: string;
+  remarks: string;
+  eidNo: string;
+  aadharNo: string;
+  nationalityId: string; // Dropdown
+  religionId: string; // Dropdown
+  icdCode: string;
+  age: string;
+  isLegacyRecord: boolean;
+
+  // Fields from DeathMotherInfo
+  motherFirstName: string;
+  motherMiddleName: string;
+  motherLastName: string;
+  motherAadharNo: string;
+  motherEmailId: string;
+  motherMobileNo: string;
+
+  // Fields from DeathSpouseInfo
+  spouseFirstName: string;
+  spouseMiddleName: string;
+  spouseLastName: string;
+  spouseAadharNo: string;
+  spouseEmailId: string;
+  spouseMobileNo: string;
+
+  // Fields from DeathPermanentAddress
+  permBuildingNo: string;
+  permHouseNo: string;
+  permStreetName: string;
+  permLocality: string;
+  permTehsil: string;
+  permDistrict: string;
+  permCity: string;
+  permState: string;
+  permPinNo: string;
+  permCountry: string;
+
+  // Fields from DeathPresentAddress
+  presBuildingNo: string;
+  presHouseNo: string;
+  presStreetName: string;
+  presLocality: string;
+  presTehsil: string;
+  presDistrict: string;
+  presCity: string;
+  presState: string;
+  presPinNo: string;
+  presCountry: string;
+
+  // Additional field for address checkbox
+  sameAsPermanent: boolean;
   
-  // Birth Place
-  birthPlace: string;
-  birthPlaceType: 'hospital' | 'home' | 'other';
+  // File upload for supporting documents
+  supportingDocuments: File | null;
   
-  // Father's Information
-  fatherName: string;
-  fatherAadhar: string;
-  fatherEducation: string;
-  fatherProfession: string;
-  fatherReligion: string;
-  
-  // Mother's Information
-  motherName: string;
-  motherAadhar: string;
-  motherEducation: string;
-  motherProfession: string;
-  motherReligion: string;
-  
-  // Address at Time of Birth
-  birthAddressBuildingNumber: string;
-  birthAddressHouseNo: string;
-  birthAddressStreet: string;
-  birthAddressLocality: string;
-  birthAddressTehsil: string;
-  birthAddressDistrict: string;
-  birthAddressCity: string;
-  birthAddressState: string;
-  birthAddressPincode: string;
-  birthAddressCountry: string;
-  
-  // Permanent Address Fields
-  sameAsTimeOfBirth: boolean;
-  permAddressBuildingNumber: string;
-  permAddressHouseNo: string;
-  permAddressStreet: string;
-  permAddressLocality: string;
-  permAddressTehsil: string;
-  permAddressDistrict: string;
-  permAddressCity: string;
-  permAddressState: string;
-  permAddressPincode: string;
-  permAddressCountry: string;
-  
-  // Informant's Information
-  informantName: string;
-  informantAddress: string;
-  informantRemarks: string;
-  
-  // Additional Details
-  email: string;
-  mobileNumber: string;
-  nationality: string;
-  attachedDocuments: File | null;
+  // Agreement field
   agree: boolean;
 }
 
 // Default values for the form
-const defaultValues: BirthRegistrationFormValues = {
-  // Registration Details
-  registrationNumber: '',
-  registrationDate: '',
-  hospitalName: '',
-  
-  // Information at Birth
-  childName: '',
-  dateOfBirth: '',
+const defaultValues: DeathRegistrationFormValues = {
+  // Fields from DeathDetails
+  id: '',
+  registrationNo: '',
+  hospitalId: '',
+  dateOfReport: '',
+  dateOfDeath: '',
+  firstName: '',
+  middleName: '',
+  lastName: '',
+  placeOfDeath: '',
+  informantsName: '',
+  informantsAddress: '',
+  counter: '',
+  tenantId: '',
   gender: 'male',
-  placeOfBirth: '',
-  weight: '',
-  
-  // Birth Place
-  birthPlace: '',
-  birthPlaceType: 'hospital',
-  
-  // Father's Information
-  fatherName: '',
-  fatherAadhar: '',
-  fatherEducation: '',
-  fatherProfession: '',
-  fatherReligion: '',
-  
-  // Mother's Information
-  motherName: '',
-  motherAadhar: '',
-  motherEducation: '',
-  motherProfession: '',
-  motherReligion: '',
-  
-  // Address at Time of Birth
-  birthAddressBuildingNumber: '',
-  birthAddressHouseNo: '',
-  birthAddressStreet: '',
-  birthAddressLocality: '',
-  birthAddressTehsil: '',
-  birthAddressDistrict: '',
-  birthAddressCity: '',
-  birthAddressState: '',
-  birthAddressPincode: '',
-  birthAddressCountry: '',
-  
-  // Permanent Address Fields
-  sameAsTimeOfBirth: false,
-  permAddressBuildingNumber: '',
-  permAddressHouseNo: '',
-  permAddressStreet: '',
-  permAddressLocality: '',
-  permAddressTehsil: '',
-  permAddressDistrict: '',
-  permAddressCity: '',
-  permAddressState: '',
-  permAddressPincode: '',
-  permAddressCountry: '',
-  
-  // Informant's Information
-  informantName: '',
-  informantAddress: '',
-  informantRemarks: '',
-  
-  // Additional Details
-  email: '',
-  mobileNumber: '',
-  nationality: 'Indian',
-  attachedDocuments: null,
+  remarks: '',
+  eidNo: '',
+  aadharNo: '',
+  nationalityId: '',
+  religionId: '',
+  icdCode: '',
+  age: '',
+  isLegacyRecord: false,
+
+  // Fields from DeathMotherInfo
+  motherFirstName: '',
+  motherMiddleName: '',
+  motherLastName: '',
+  motherAadharNo: '',
+  motherEmailId: '',
+  motherMobileNo: '',
+
+  // Fields from DeathSpouseInfo
+  spouseFirstName: '',
+  spouseMiddleName: '',
+  spouseLastName: '',
+  spouseAadharNo: '',
+  spouseEmailId: '',
+  spouseMobileNo: '',
+
+  // Fields from DeathPermanentAddress
+  permBuildingNo: '',
+  permHouseNo: '',
+  permStreetName: '',
+  permLocality: '',
+  permTehsil: '',
+  permDistrict: '',
+  permCity: '',
+  permState: '',
+  permPinNo: '',
+  permCountry: '',
+
+  // Fields from DeathPresentAddress
+  presBuildingNo: '',
+  presHouseNo: '',
+  presStreetName: '',
+  presLocality: '',
+  presTehsil: '',
+  presDistrict: '',
+  presCity: '',
+  presState: '',
+  presPinNo: '',
+  presCountry: '',
+
+  // Additional fields
+  sameAsPermanent: false,
+  supportingDocuments: null,
   agree: false,
 };
+
+// Mock data for dropdowns
+const hospitals = [
+  { value: '1', label: 'City General Hospital' },
+  { value: '2', label: 'District Medical Center' },
+  { value: '3', label: 'Community Health Hospital' },
+  { value: '4', label: 'Private Medical Center' },
+];
+
+const nationalities = [
+  { value: '1', label: 'Indian' },
+  { value: '2', label: 'American' },
+  { value: '3', label: 'British' },
+  { value: '4', label: 'Canadian' },
+  { value: '5', label: 'Australian' },
+];
+
+const religions = [
+  { value: '1', label: 'Hinduism' },
+  { value: '2', label: 'Islam' },
+  { value: '3', label: 'Christianity' },
+  { value: '4', label: 'Sikhism' },
+  { value: '5', label: 'Buddhism' },
+  { value: '6', label: 'Jainism' },
+  { value: '7', label: 'Other' },
+];
 
 // Validation schema
 const validationSchema = yup.object().shape({
   // Registration Details
-  registrationNumber: yup.string().required('Registration number is required'),
-  registrationDate: yup.string().required('Registration date is required'),
+  registrationNo: yup.string().required('Registration number is required'),
+  hospitalId: yup.string().required('Hospital is required'),
+  dateOfReport: yup.string().required('Date of report is required'),
+  dateOfDeath: yup.string().required('Date of death is required'),
   
-  // Information at Birth
-  childName: yup.string().required('Child name is required'),
-  dateOfBirth: yup.string().required('Date of birth is required'),
+  // Personal Information
+  firstName: yup.string().required('First name is required'),
+  lastName: yup.string().required('Last name is required'),
   gender: yup.string().oneOf(['male', 'female', 'other']).required('Gender is required'),
+  age: yup.string()
+    .matches(/^\d+$/, 'Age must be a valid number')
+    .required('Age is required'),
+  placeOfDeath: yup.string().required('Place of death is required'),
   
-  // Address at Time of Birth (Required fields)
-  birthAddressStreet: yup.string().required('Street name is required'),
-  birthAddressCity: yup.string().required('City is required'),
-  birthAddressState: yup.string().required('State is required'),
-  birthAddressCountry: yup.string().required('Country is required'),
+  // Other Required Details
+  nationalityId: yup.string().required('Nationality is required'),
+  religionId: yup.string().required('Religion is required'),
   
-  // Permanent Address Fields (Conditional validation)
-  permAddressStreet: yup.string().when('sameAsTimeOfBirth', {
+  // Identification
+  aadharNo: yup.string()
+    .matches(/^\d{12}$/, 'Aadhar number must be 12 digits')
+    .nullable(),
+  
+  // Permanent Address (Required fields)
+  permStreetName: yup.string().required('Street name is required'),
+  permCity: yup.string().required('City is required'),
+  permState: yup.string().required('State is required'),
+  permCountry: yup.string().required('Country is required'),
+  permPinNo: yup.string()
+    .matches(/^\d{6}$/, 'PIN code must be 6 digits')
+    .required('PIN code is required'),
+  
+  // Present Address (Conditional validation)
+  presStreetName: yup.string().when('sameAsPermanent', {
     is: false,
     then: (schema) => schema.required('Street name is required'),
     otherwise: (schema) => schema,
   }),
-  permAddressCity: yup.string().when('sameAsTimeOfBirth', {
+  presCity: yup.string().when('sameAsPermanent', {
     is: false,
     then: (schema) => schema.required('City is required'),
     otherwise: (schema) => schema,
   }),
-  permAddressState: yup.string().when('sameAsTimeOfBirth', {
+  presState: yup.string().when('sameAsPermanent', {
     is: false,
     then: (schema) => schema.required('State is required'),
     otherwise: (schema) => schema,
   }),
-  permAddressCountry: yup.string().when('sameAsTimeOfBirth', {
+  presCountry: yup.string().when('sameAsPermanent', {
     is: false,
     then: (schema) => schema.required('Country is required'),
     otherwise: (schema) => schema,
   }),
+  presPinNo: yup.string().when('sameAsPermanent', {
+    is: false,
+    then: (schema) => schema.matches(/^\d{6}$/, 'PIN code must be 6 digits').required('PIN code is required'),
+    otherwise: (schema) => schema,
+  }),
   
-  // Parents Information
-  fatherName: yup.string().required('Father\'s name is required'),
-  motherName: yup.string().required('Mother\'s name is required'),
+  // Mother's Information
+  motherFirstName: yup.string(),
+  motherMobileNo: yup.string()
+    .matches(/^\d{10}$/, 'Mobile number must be 10 digits')
+    .nullable(),
+  motherEmailId: yup.string().email('Invalid email format').nullable(),
   
-  // Additional Details
-  email: yup.string().email('Invalid email format').required('Email is required'),
-  mobileNumber: yup.string().required('Mobile number is required'),
-  agree: yup.boolean().oneOf([true], 'You must agree to the terms and conditions'),
+  // Spouse Information
+  spouseFirstName: yup.string(),
+  spouseMobileNo: yup.string()
+    .matches(/^\d{10}$/, 'Mobile number must be 10 digits')
+    .nullable(),
+  spouseEmailId: yup.string().email('Invalid email format').nullable(),
+  
+  // Informant's Information
+  informantsName: yup.string().required('Informant\'s name is required'),
+  informantsAddress: yup.string().required('Informant\'s address is required'),
+  
+  // Agreement
+  agree: yup.boolean()
+    .oneOf([true], 'You must agree to the declaration')
+    .required('You must agree to the declaration'),
+  
+  // Documents
+  supportingDocuments: yup.mixed<File>()
+    .test('required', 'Supporting documents are required', (value) => !!value),
 });
 
-const BirthRegistrationForm = () => {
+const DeathRegistrationForm = () => {
   const [isSubmitDisabled, setIsSubmitDisabled] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   
-  const methods = useForm<BirthRegistrationFormValues>({
+  const methods = useForm<DeathRegistrationFormValues>({
     resolver: yupResolver(validationSchema),
     defaultValues,
   });
@@ -214,27 +289,27 @@ const BirthRegistrationForm = () => {
     setValue,
   } = methods;
   
-  // Watch the sameAsTimeOfBirth checkbox value
-  const sameAsTimeOfBirth = watch('sameAsTimeOfBirth');
+  // Watch the sameAsPermanent checkbox value
+  const sameAsPermanent = watch('sameAsPermanent');
   
-  // Handle sameAsTimeOfBirth checkbox change
+  // Handle same address checkbox change
   const handleSameAddressChange = (checked: boolean) => {
     if (checked) {
-      // Copy address fields from birth address to permanent address
-      setValue('permAddressBuildingNumber', watch('birthAddressBuildingNumber'));
-      setValue('permAddressHouseNo', watch('birthAddressHouseNo'));
-      setValue('permAddressStreet', watch('birthAddressStreet'));
-      setValue('permAddressLocality', watch('birthAddressLocality'));
-      setValue('permAddressTehsil', watch('birthAddressTehsil'));
-      setValue('permAddressDistrict', watch('birthAddressDistrict'));
-      setValue('permAddressCity', watch('birthAddressCity'));
-      setValue('permAddressState', watch('birthAddressState'));
-      setValue('permAddressPincode', watch('birthAddressPincode'));
-      setValue('permAddressCountry', watch('birthAddressCountry'));
+      // Copy address fields from permanent address to present address
+      setValue('presBuildingNo', watch('permBuildingNo'));
+      setValue('presHouseNo', watch('permHouseNo'));
+      setValue('presStreetName', watch('permStreetName'));
+      setValue('presLocality', watch('permLocality'));
+      setValue('presTehsil', watch('permTehsil'));
+      setValue('presDistrict', watch('permDistrict'));
+      setValue('presCity', watch('permCity'));
+      setValue('presState', watch('permState'));
+      setValue('presPinNo', watch('permPinNo'));
+      setValue('presCountry', watch('permCountry'));
     }
   };
   
-  const onSubmit = (data: BirthRegistrationFormValues) => {
+  const onSubmit = (data: DeathRegistrationFormValues) => {
     setIsSubmitDisabled(true);
     console.log('Form data submitted:', data);
     
@@ -257,26 +332,38 @@ const BirthRegistrationForm = () => {
         <h2>Registration Details</h2>
         <div className="row">
           <div className="col">
-            <RHFTextField name="registrationNumber" label="Registration Number *" />
+            <RHFTextField name="registrationNo" label="Registration Number *" />
           </div>
           <div className="col">
-            <RHFDatePicker name="registrationDate" label="Registration Date *" />
+            <RHFSelect
+              name="hospitalId"
+              label="Hospital *"
+              options={hospitals}
+            />
+          </div>
+        </div>
+        <div className="row">
+          <div className="col">
+            <RHFDatePicker name="dateOfReport" label="Date of Report *" />
           </div>
           <div className="col">
-            <RHFTextField name="hospitalName" label="Hospital Name" />
+            <RHFDatePicker name="dateOfDeath" label="Date of Death *" />
           </div>
         </div>
       </div>
       
-      {/* Information at Birth Section */}
+      {/* Personal Information Section */}
       <div className="section">
-        <h2>Information at Birth</h2>
+        <h2>Personal Information</h2>
         <div className="row">
           <div className="col">
-            <RHFTextField name="childName" label="Child Name *" />
+            <RHFTextField name="firstName" label="First Name *" />
           </div>
           <div className="col">
-            <RHFDatePicker name="dateOfBirth" label="Date of Birth *" />
+            <RHFTextField name="middleName" label="Middle Name" />
+          </div>
+          <div className="col">
+            <RHFTextField name="lastName" label="Last Name *" />
           </div>
         </div>
         <div className="row">
@@ -292,34 +379,40 @@ const BirthRegistrationForm = () => {
             />
           </div>
           <div className="col">
-            <RHFTextField name="weight" label="Weight (kg)" />
+            <RHFTextField name="age" label="Age *" />
           </div>
           <div className="col">
-            <RHFTextField name="placeOfBirth" label="Place of Birth" />
-          </div>
-        </div>
-      </div>
-      
-      {/* Father's Information Section */}
-      <div className="section">
-        <h2>Father's Information</h2>
-        <div className="row">
-          <div className="col">
-            <RHFTextField name="fatherName" label="Father's Name *" />
-          </div>
-          <div className="col">
-            <RHFTextField name="fatherAadhar" label="Aadhar Number" />
+            <RHFTextField name="placeOfDeath" label="Place of Death *" />
           </div>
         </div>
         <div className="row">
           <div className="col">
-            <RHFTextField name="fatherEducation" label="Education" />
+            <RHFTextField name="aadharNo" label="Aadhar Number" />
           </div>
           <div className="col">
-            <RHFTextField name="fatherProfession" label="Profession" />
+            <RHFTextField name="eidNo" label="EID Number" />
           </div>
           <div className="col">
-            <RHFTextField name="fatherReligion" label="Religion" />
+            <RHFTextField name="icdCode" label="ICD Code" />
+          </div>
+        </div>
+        <div className="row">
+          <div className="col">
+            <RHFSelect
+              name="nationalityId"
+              label="Nationality *"
+              options={nationalities}
+            />
+          </div>
+          <div className="col">
+            <RHFSelect
+              name="religionId"
+              label="Religion *"
+              options={religions}
+            />
+          </div>
+          <div className="col">
+            <RHFTextField name="tenantId" label="Tenant ID" />
           </div>
         </div>
       </div>
@@ -329,173 +422,187 @@ const BirthRegistrationForm = () => {
         <h2>Mother's Information</h2>
         <div className="row">
           <div className="col">
-            <RHFTextField name="motherName" label="Mother's Name *" />
+            <RHFTextField name="motherFirstName" label="First Name" />
           </div>
           <div className="col">
-            <RHFTextField name="motherAadhar" label="Aadhar Number" />
+            <RHFTextField name="motherMiddleName" label="Middle Name" />
+          </div>
+          <div className="col">
+            <RHFTextField name="motherLastName" label="Last Name" />
           </div>
         </div>
         <div className="row">
           <div className="col">
-            <RHFTextField name="motherEducation" label="Education" />
+            <RHFTextField name="motherAadharNo" label="Aadhar Number" />
           </div>
           <div className="col">
-            <RHFTextField name="motherProfession" label="Profession" />
+            <RHFTextField name="motherEmailId" label="Email ID" type="email" />
           </div>
           <div className="col">
-            <RHFTextField name="motherReligion" label="Religion" />
+            <RHFTextField name="motherMobileNo" label="Mobile Number" />
           </div>
         </div>
       </div>
       
-      {/* Address at Time of Birth Section */}
+      {/* Spouse Information Section */}
       <div className="section">
-        <h2>Address of Parents at the Time of Birth</h2>
+        <h2>Spouse Information</h2>
         <div className="row">
           <div className="col">
-            <RHFTextField name="birthAddressBuildingNumber" label="Building Number" />
+            <RHFTextField name="spouseFirstName" label="First Name" />
           </div>
           <div className="col">
-            <RHFTextField name="birthAddressHouseNo" label="House No" />
+            <RHFTextField name="spouseMiddleName" label="Middle Name" />
           </div>
           <div className="col">
-            <RHFTextField name="birthAddressStreet" label="Street Name *" />
+            <RHFTextField name="spouseLastName" label="Last Name" />
           </div>
         </div>
         <div className="row">
           <div className="col">
-            <RHFTextField name="birthAddressLocality" label="Locality" />
+            <RHFTextField name="spouseAadharNo" label="Aadhar Number" />
           </div>
           <div className="col">
-            <RHFTextField name="birthAddressTehsil" label="Tehsil" />
+            <RHFTextField name="spouseEmailId" label="Email ID" type="email" />
           </div>
           <div className="col">
-            <RHFTextField name="birthAddressDistrict" label="District" />
-          </div>
-        </div>
-        <div className="row">
-          <div className="col">
-            <RHFTextField name="birthAddressCity" label="City *" />
-          </div>
-          <div className="col">
-            <RHFTextField name="birthAddressState" label="State *" />
-          </div>
-          <div className="col">
-            <RHFTextField name="birthAddressPincode" label="Pincode" />
-          </div>
-        </div>
-        <div className="row">
-          <div className="col">
-            <RHFTextField name="birthAddressCountry" label="Country *" />
+            <RHFTextField name="spouseMobileNo" label="Mobile Number" />
           </div>
         </div>
       </div>
       
       {/* Permanent Address Section */}
       <div className="section">
+        <h2>Permanent Address</h2>
+        <div className="row">
+          <div className="col">
+            <RHFTextField name="permBuildingNo" label="Building Number" />
+          </div>
+          <div className="col">
+            <RHFTextField name="permHouseNo" label="House Number" />
+          </div>
+          <div className="col">
+            <RHFTextField name="permStreetName" label="Street Name *" />
+          </div>
+        </div>
+        <div className="row">
+          <div className="col">
+            <RHFTextField name="permLocality" label="Locality" />
+          </div>
+          <div className="col">
+            <RHFTextField name="permTehsil" label="Tehsil" />
+          </div>
+          <div className="col">
+            <RHFTextField name="permDistrict" label="District" />
+          </div>
+        </div>
+        <div className="row">
+          <div className="col">
+            <RHFTextField name="permCity" label="City *" />
+          </div>
+          <div className="col">
+            <RHFTextField name="permState" label="State *" />
+          </div>
+          <div className="col">
+            <RHFTextField name="permPinNo" label="PIN Code *" />
+          </div>
+        </div>
+        <div className="row">
+          <div className="col">
+            <RHFTextField name="permCountry" label="Country *" />
+          </div>
+        </div>
+      </div>
+      
+      {/* Present Address Section */}
+      <div className="section">
         <div className="row">
           <div className="col">
             <RHFCheckbox 
-              name="sameAsTimeOfBirth" 
-              label="If Permanent Address of Parents is same as Address of Parents at the time of Birth"
+              name="sameAsPermanent" 
+              label="Present Address same as Permanent Address"
               onChange={(e) => handleSameAddressChange(e.target.checked)}
             />
           </div>
         </div>
         
-        <h2>Permanent Address of Parents</h2>
+        <h2>Present Address</h2>
         <div className="row">
           <div className="col">
             <RHFTextField 
-              name="permAddressBuildingNumber" 
-              label="Building Number *" 
-              disabled={sameAsTimeOfBirth}
+              name="presBuildingNo" 
+              label="Building Number" 
+              disabled={sameAsPermanent}
             />
           </div>
           <div className="col">
             <RHFTextField 
-              name="permAddressHouseNo" 
-              label="House No *" 
-              disabled={sameAsTimeOfBirth}
+              name="presHouseNo" 
+              label="House Number" 
+              disabled={sameAsPermanent}
             />
           </div>
           <div className="col">
             <RHFTextField 
-              name="permAddressStreet" 
+              name="presStreetName" 
               label="Street Name *" 
-              disabled={sameAsTimeOfBirth}
+              disabled={sameAsPermanent}
             />
           </div>
         </div>
         <div className="row">
           <div className="col">
             <RHFTextField 
-              name="permAddressLocality" 
-              label="Locality *" 
-              disabled={sameAsTimeOfBirth}
+              name="presLocality" 
+              label="Locality" 
+              disabled={sameAsPermanent}
             />
           </div>
           <div className="col">
             <RHFTextField 
-              name="permAddressTehsil" 
-              label="Tehsil *" 
-              disabled={sameAsTimeOfBirth}
+              name="presTehsil" 
+              label="Tehsil" 
+              disabled={sameAsPermanent}
             />
           </div>
           <div className="col">
             <RHFTextField 
-              name="permAddressDistrict" 
-              label="District *" 
-              disabled={sameAsTimeOfBirth}
+              name="presDistrict" 
+              label="District" 
+              disabled={sameAsPermanent}
             />
           </div>
         </div>
         <div className="row">
           <div className="col">
             <RHFTextField 
-              name="permAddressCity" 
+              name="presCity" 
               label="City *" 
-              disabled={sameAsTimeOfBirth}
+              disabled={sameAsPermanent}
             />
           </div>
           <div className="col">
             <RHFTextField 
-              name="permAddressState" 
+              name="presState" 
               label="State *" 
-              disabled={sameAsTimeOfBirth}
+              disabled={sameAsPermanent}
             />
           </div>
           <div className="col">
             <RHFTextField 
-              name="permAddressPincode" 
-              label="Pincode *" 
-              disabled={sameAsTimeOfBirth}
+              name="presPinNo" 
+              label="PIN Code *" 
+              disabled={sameAsPermanent}
             />
           </div>
         </div>
         <div className="row">
           <div className="col">
             <RHFTextField 
-              name="permAddressCountry" 
+              name="presCountry" 
               label="Country *" 
-              disabled={sameAsTimeOfBirth}
+              disabled={sameAsPermanent}
             />
-          </div>
-        </div>
-      </div>
-      
-      {/* Contact Information */}
-      <div className="section">
-        <h2>Contact Information</h2>
-        <div className="row">
-          <div className="col">
-            <RHFTextField name="email" label="Email ID *" type="email" />
-          </div>
-          <div className="col">
-            <RHFTextField name="mobileNumber" label="Mobile Number *" />
-          </div>
-          <div className="col">
-            <RHFTextField name="nationality" label="Nationality *" />
           </div>
         </div>
       </div>
@@ -505,15 +612,25 @@ const BirthRegistrationForm = () => {
         <h2>Informant's Information</h2>
         <div className="row">
           <div className="col">
-            <RHFTextField name="informantName" label="Name" />
+            <RHFTextField name="informantsName" label="Informant's Name *" />
           </div>
           <div className="col">
-            <RHFTextField name="informantAddress" label="Address" />
+            <RHFTextField name="informantsAddress" label="Informant's Address *" />
+          </div>
+        </div>
+      </div>
+      
+      {/* Additional Details */}
+      <div className="section">
+        <h2>Additional Details</h2>
+        <div className="row">
+          <div className="col">
+            <RHFTextField name="remarks" label="Remarks" multiline rows={3} />
           </div>
         </div>
         <div className="row">
           <div className="col">
-            <RHFTextField name="informantRemarks" label="Remarks" multiline rows={3} />
+            <RHFCheckbox name="isLegacyRecord" label="Is Legacy Record" />
           </div>
         </div>
       </div>
@@ -523,12 +640,12 @@ const BirthRegistrationForm = () => {
         <h2>Supporting Documents</h2>
         <div className="row">
           <div className="col">
-            <RHFFileUpload name="attachedDocuments" label="Upload Documents *" />
+            <RHFFileUpload name="supportingDocuments" label="Upload Documents *" />
           </div>
         </div>
       </div>
       
-      {/* Terms & Conditions */}
+      {/* Declaration */}
       <div className="section terms">
         <div className="row">
           <div className="col">
@@ -540,7 +657,7 @@ const BirthRegistrationForm = () => {
       {/* Success Message */}
       {showSuccess && (
         <div className="success-message">
-          <p>Success! Birth registration form submitted successfully.</p>
+          <p>Success! Death registration form submitted successfully.</p>
         </div>
       )}
       
@@ -561,7 +678,7 @@ const BirthRegistrationForm = () => {
   );
 };
 
-export default BirthRegistrationForm;
+export default DeathRegistrationForm;
 
 
 
@@ -570,145 +687,47 @@ export default BirthRegistrationForm;
 
 
 
--------------------------------------------------------------
 
 
 
-import * as yup from 'yup';
-import { BirthRegistrationFormValues } from './interfaces';
 
-// Maximum file size (5MB)
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
-// Allowed file types
-const ALLOWED_FILE_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
 
-export const validationSchema: yup.ObjectSchema<BirthRegistrationFormValues> = yup.object().shape({
-  // Registration Details
-  registrationNumber: yup.string().required('Registration number is required'),
-  registrationDate: yup.string().required('Registration date is required'),
-  hospitalName: yup.string(),
-  
-  // Information at Birth
-  childName: yup.string().required('Child name is required'),
-  dateOfBirth: yup.string().required('Date of birth is required'),
-  gender: yup.string().oneOf(['male', 'female', 'other']).required('Gender is required'),
-  placeOfBirth: yup.string(),
-  weight: yup.string().matches(/^\d*\.?\d*$/, 'Weight must be a valid number'),
-  
-  // Birth Place
-  birthPlace: yup.string(),
-  birthPlaceType: yup.string().oneOf(['hospital', 'home', 'other']),
-  
-  // Father's Information
-  fatherName: yup.string().required('Father\'s name is required'),
-  fatherAadhar: yup.string()
-    .matches(/^\d{12}$/, 'Aadhar number must be 12 digits')
-    .nullable(),
-  fatherEducation: yup.string(),
-  fatherProfession: yup.string(),
-  fatherReligion: yup.string(),
-  
-  // Mother's Information
-  motherName: yup.string().required('Mother\'s name is required'),
-  motherAadhar: yup.string()
-    .matches(/^\d{12}$/, 'Aadhar number must be 12 digits')
-    .nullable(),
-  motherEducation: yup.string(),
-  motherProfession: yup.string(),
-  motherReligion: yup.string(),
-  
-  // Address at Time of Birth
-  birthAddressBuildingNumber: yup.string(),
-  birthAddressHouseNo: yup.string(),
-  birthAddressStreet: yup.string().required('Street name is required'),
-  birthAddressLocality: yup.string(),
-  birthAddressTehsil: yup.string(),
-  birthAddressDistrict: yup.string(),
-  birthAddressCity: yup.string().required('City is required'),
-  birthAddressState: yup.string().required('State is required'),
-  birthAddressPincode: yup.string()
-    .matches(/^\d{6}$/, 'Pincode must be 6 digits'),
-  birthAddressCountry: yup.string().required('Country is required'),
-  
-  // Permanent Address Fields
-  sameAsTimeOfBirth: yup.boolean(),
-  permAddressBuildingNumber: yup.string().when('sameAsTimeOfBirth', {
-    is: false,
-    then: (schema) => schema,
-    otherwise: (schema) => schema,
-  }),
-  permAddressHouseNo: yup.string().when('sameAsTimeOfBirth', {
-    is: false,
-    then: (schema) => schema,
-    otherwise: (schema) => schema,
-  }),
-  permAddressStreet: yup.string().when('sameAsTimeOfBirth', {
-    is: false,
-    then: (schema) => schema.required('Street name is required'),
-    otherwise: (schema) => schema,
-  }),
-  permAddressLocality: yup.string().when('sameAsTimeOfBirth', {
-    is: false,
-    then: (schema) => schema,
-    otherwise: (schema) => schema,
-  }),
-  permAddressTehsil: yup.string().when('sameAsTimeOfBirth', {
-    is: false,
-    then: (schema) => schema,
-    otherwise: (schema) => schema,
-  }),
-  permAddressDistrict: yup.string().when('sameAsTimeOfBirth', {
-    is: false,
-    then: (schema) => schema,
-    otherwise: (schema) => schema,
-  }),
-  permAddressCity: yup.string().when('sameAsTimeOfBirth', {
-    is: false,
-    then: (schema) => schema.required('City is required'),
-    otherwise: (schema) => schema,
-  }),
-  permAddressState: yup.string().when('sameAsTimeOfBirth', {
-    is: false,
-    then: (schema) => schema.required('State is required'),
-    otherwise: (schema) => schema,
-  }),
-  permAddressPincode: yup.string().when('sameAsTimeOfBirth', {
-    is: false,
-    then: (schema) => schema.matches(/^\d{6}$/, 'Pincode must be 6 digits'),
-    otherwise: (schema) => schema,
-  }),
-  permAddressCountry: yup.string().when('sameAsTimeOfBirth', {
-    is: false,
-    then: (schema) => schema.required('Country is required'),
-    otherwise: (schema) => schema,
-  }),
-  
-  // Informant's Information
-  informantName: yup.string(),
-  informantAddress: yup.string(),
-  informantRemarks: yup.string(),
-  
-  // Additional Details
-  email: yup.string().email('Invalid email format').required('Email is required'),
-  mobileNumber: yup.string()
-    .matches(/^\d{10}$/, 'Mobile number must be 10 digits')
-    .required('Mobile number is required'),
-  nationality: yup.string().required('Nationality is required'),
-  
-  // Documents
-  attachedDocuments: yup.mixed<File>()
-    .test('required', 'Document is required', (value) => !!value)
-    .test('fileSize', 'File size is too large (max 5MB)', (value) => {
-      if (!value) return true;
-      return value.size <= MAX_FILE_SIZE;
-    })
-    .test('fileType', 'Unsupported file format', (value) => {
-      if (!value) return true;
-      return ALLOWED_FILE_TYPES.includes(value.type);
-    }),
-  
-  // Terms
-  agree: yup.boolean()
-    .oneOf([true], 'You must agree to the declaration')
-    .required('You must agree to the declaration'),
+
+
+
+
+
+
+
+
+
+----------------
+
+const dateRangeSchema = yup.object({
+  startDate: yup.date()
+    .required('Start date is required')
+    .typeError('Please enter a valid start date'),
+  endDate: yup.date()
+    .required('End date is required')
+    .min(
+      yup.ref('startDate'), 
+      'End date must be after the start date'
+    )
+    .typeError('Please enter a valid end date')
 });
+----------------------
+
+<svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-edit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
+
+
+npm install @tabler/icons-react
+import { IconEdit } from '@tabler/icons-react';
+<IconEdit stroke={2} />
+
+
+-------------------
+
+<IconTrash stroke={2} />
+import { IconTrash } from '@tabler/icons-react';
+
+<svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-trash"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7l16 0" /><path d="M10 11l0 6" /><path d="M14 11l0 6" /><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" /></svg>

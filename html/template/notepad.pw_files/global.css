@@ -1,0 +1,332 @@
+.textarea::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.textarea::-webkit-scrollbar-track-piece {
+  background: #f2f4f8;
+}
+.textarea::-webkit-scrollbar-button:start:decrement,
+::-webkit-scrollbar-button:end:increment {
+  display: block;
+  height: 12px;
+  background-color: #cad1d5;
+}
+.textarea::-webkit-scrollbar-thumb:vertical {
+  height: 25px;
+  background-color: #cad1d5;
+}
+*,
+:before,
+:after {
+  -webkit-border-radius: 0;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+}
+body {
+  font-family: 'Noto Sans', sans-serif;
+  background: #e9ecf0;
+  font-size: 15px;
+  color: #929ea4;
+}
+.container {
+  display: none;
+  width: 90%;
+  max-width: 1500px;
+  border: 1px solid #d9d9d9;
+}
+.container .functions {
+  background: #fff;
+}
+.container .functions .nav {
+  padding: 10px 20px;
+  height: 40px;
+}
+.container .functions .nav a {
+  color: #929ea4;
+  text-decoration: none;
+  padding: 0 15px;
+}
+.container .functions .nav a.active {
+  color: #96d75b;
+}
+.container .functions .nav .fl-left {
+  float: left;
+  font-size: 18px;
+}
+.container .functions .nav .notepad_logo {
+  cursor: pointer;
+}
+.container .functions .nav .gsearch {
+  display: none;
+}
+.container .functions .nav .gsearch i {
+  cursor: pointer;
+}
+.container .functions .nav .gsearch .search_google {
+  border: 0;
+  outline: none;
+  font-size: 15px;
+  padding: 0 0 0 15px;
+  background: transparent;
+  color: inherit;
+}
+.container .functions .nav .fl-right {
+  float: right;
+  font-size: 18px;
+}
+.container .functions .nav .cf {
+  clear: both;
+}
+.container .functions .footer-share {
+  padding: 10px;
+}
+.container .functions .footer-share a {
+  color: #929ea4;
+  text-decoration: none;
+  font-size: 18px;
+  margin: 0 5px 0;
+}
+.container .functions .footer-share .url {
+  background: #fff;
+  border: 0;
+  border: 1px solid #cacfd2;
+  border-radius: 3px;
+  padding: 5px;
+  outline: none;
+  text-align: center;
+  color: #a0aab0;
+  width: 220px;
+  margin: 5px auto;
+  font-size: 13px;
+}
+.container .functions .footer-share .bold {
+  font-weight: bold;
+}
+.container .functions .footer-share .share-btn {
+  border: 1px solid #e9ecf0;
+  color: inherit;
+  padding: 5px 8px;
+  outline: none;
+  border-radius: 5px;
+  background: transparent;
+  margin: 0 0 5px;
+  cursor: pointer;
+}
+.container .functions .modal {
+  text-align: center;
+  background: #fefefe;
+  position: absolute;
+  margin: auto;
+  top: 0;
+  right: 0;
+  bottom: 25%;
+  left: 0;
+  max-width: 80%;
+  width: 340px;
+  height: 90px;
+  border: 3px solid #d4dae2;
+  border-radius: 6px;
+  padding: 12px;
+  box-shadow: 2px 2px 2px rgba(238, 238, 238, 0.5);
+  z-index: 9999;
+}
+.container .functions .modal .input-box {
+  background: #fff;
+  border: 0;
+  border: 1px solid #929ea4;
+  border-radius: 3px;
+  padding: 5px;
+  outline: none;
+  text-align: center;
+  color: #000;
+  width: 180px;
+}
+.container .functions .modal .input-submit {
+  border-radius: 3px;
+  padding: 5px;
+  padding: 5px 10px;
+  text-align: center;
+  background: #929ea4;
+  border: 1px solid #929ea4;
+  color: #fff;
+  outline: none;
+  cursor: pointer;
+}
+.container .functions .modal .label {
+  font-weight: bold;
+  display: block;
+  margin-bottom: 5px;
+  font-size: 13px;
+}
+.container .textarea {
+  display: block;
+  width: 100%;
+  margin: 0 auto;
+  background: #fff;
+  color: #000;
+  font-family: Arial, Helvetica, sans-serif;
+  border: 0;
+  border-top: 1px solid #e8e8e8;
+  border-bottom: 1px solid #e8e8e8;
+  resize: none;
+  outline: none;
+  padding: 15px;
+  line-height: 20px;
+}
+.container .text-center {
+  text-align: center;
+}
+.container .post_success {
+  color: #cacfd2;
+}
+.container .footer-stats {
+  padding: 2px;
+  font-size: 11px;
+}
+.container .txt-holder {
+  position: relative;
+}
+.container .direct-raw {
+  position: absolute;
+  right: 20px;
+  bottom: 10px;
+}
+.container .direct-raw a {
+  color: inherit;
+  text-decoration: inherit;
+  border: 1px solid #c3c3c3;
+  background: #eee;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  padding: 2px 5px;
+  border-radius: 5px;
+  font-size: 11px;
+  opacity: 0.6;
+}
+.container .direct-raw a:hover {
+  opacity: 1;
+}
+.tooltip {
+  position: relative;
+  display: inline-block;
+}
+.tooltip .tooltiptext {
+  visibility: hidden;
+  width: 120px;
+  background-color: #929ea4;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  font-size: 11px;
+  padding: 5px 0;
+  position: absolute;
+  z-index: 1;
+  bottom: 150%;
+  left: 50%;
+  margin-left: -60px;
+}
+.tooltip .tooltiptext::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #929ea4 transparent transparent transparent;
+}
+.tooltip:hover .tooltiptext {
+  visibility: visible;
+}
+.footer-print {
+  text-align: center;
+  margin: 10px auto;
+  font-size: 13px;
+  width: 90%;
+  max-width: 1500px;
+  display: none;
+}
+.footer-print a {
+  text-decoration: none;
+  padding: 0 5px;
+  color: #a0aab0;
+}
+.np-share {
+  background: #929ea4;
+  position: fixed;
+  bottom: 5px;
+  right: 5px;
+  color: #fff;
+  border-radius: 5px;
+  text-align: center;
+  font-size: 22px;
+  padding: 5px 10px;
+}
+.np-share .share-opener {
+  cursor: pointer;
+}
+.np-share .share-content {
+  background: #929ea4;
+  color: #fff;
+  border-radius: 5px;
+  display: none;
+}
+.np-share .share-content a {
+  display: block;
+  color: #fff;
+  margin: 15px 0;
+}
+.np-share .share-content a:hover {
+  color: #5f6b71;
+}
+.alert {
+  padding: 15px;
+  background-color: #4CAF50;
+  color: white;
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  opacity: 1;
+  transition: opacity 0.6s;
+  z-index: 99999;
+}
+.closebtn {
+  margin-left: 15px;
+  color: white;
+  font-weight: bold;
+  float: right;
+  font-size: 22px;
+  line-height: 20px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+.closebtn:hover {
+  color: black;
+}
+@media screen and (max-width: 770px) {
+  .desktop-only {
+    display: none;
+  }
+  .input-box {
+    width: 110px !important;
+  }
+  .tooltiptext {
+    display: none;
+  }
+  .fl-left,
+  .fl-right {
+    font-size: 16px !important;
+  }
+  .modal {
+    font-size: 13px;
+  }
+}
