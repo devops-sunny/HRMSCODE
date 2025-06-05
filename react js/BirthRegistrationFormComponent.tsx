@@ -1,4 +1,5 @@
 import { yupResolver } from "@hookform/resolvers/yup";
+import * as Yup from 'yup';
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -33,6 +34,416 @@ import { download } from "../../../services/Table/TableServices";
 import moment from "moment";
 import { base64ToBlob } from "../../../utils/string";
 
+
+
+
+// Helper function to validate Aadhaar number format
+const aadhaarRegex = /^\d{12}$/;
+const mobileRegex = /^[6-9]\d{9}$/;
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const pincodeRegex = /^\d{6}$/;
+
+export const birthRegistrationValidationSchema = Yup.object().shape({
+  // 1. Child's Date of Birth
+  childDateOfBirth: Yup.string()
+    .required('Child\'s date of birth is required')
+    .test('valid-date', 'Please enter a valid date', function(value) {
+      if (!value) return false;
+      const date = new Date(value);
+      const today = new Date();
+      return date instanceof Date && !isNaN(date.getTime()) && date <= today;
+    })
+    .test('not-future', 'Birth date cannot be in the future', function(value) {
+      if (!value) return true;
+      const birthDate = new Date(value);
+      const today = new Date();
+      return birthDate <= today;
+    }),
+
+  // 2. Child's Gender
+  childGenderId: Yup.number()
+    .nullable()
+    .required('Child\'s gender is required')
+    .oneOf([1, 2, 3], 'Please select a valid gender option'),
+
+  // 3. Child's Details
+  childName: Yup.string()
+    .required('Child\'s name is required')
+    .min(2, 'Child\'s name must be at least 2 characters')
+    .max(100, 'Child\'s name cannot exceed 100 characters')
+    .matches(/^[a-zA-Z\s]+$/, 'Child\'s name should only contain letters and spaces'),
+
+  childAadhaarNumber: Yup.string()
+    .required('Child\'s Aadhaar number is required')
+    .matches(aadhaarRegex, 'Aadhaar number must be exactly 12 digits'),
+
+  // 4. Father's Details
+  fatherName: Yup.string()
+    .required('Father\'s name is required')
+    .min(2, 'Father\'s name must be at least 2 characters')
+    .max(100, 'Father\'s name cannot exceed 100 characters')
+    .matches(/^[a-zA-Z\s]+$/, 'Father\'s name should only contain letters and spaces'),
+
+  fatherAadhaarNumber: Yup.string()
+    .required('Father\'s Aadhaar number is required')
+    .matches(aadhaarRegex, 'Aadhaar number must be exactly 12 digits'),
+
+  fatherMobileNumber: Yup.string()
+    .required('Father\'s mobile number is required')
+    .matches(mobileRegex, 'Please enter a valid 10-digit mobile number'),
+
+  fatherEmailId: Yup.string()
+    .required('Father\'s email is required')
+    .matches(emailRegex, 'Please enter a valid email address')
+    .max(100, 'Email cannot exceed 100 characters'),
+
+  // 5. Mother's Details
+  motherName: Yup.string()
+    .required('Mother\'s name is required')
+    .min(2, 'Mother\'s name must be at least 2 characters')
+    .max(100, 'Mother\'s name cannot exceed 100 characters')
+    .matches(/^[a-zA-Z\s]+$/, 'Mother\'s name should only contain letters and spaces'),
+
+  motherAadhaarNumber: Yup.string()
+    .required('Mother\'s Aadhaar number is required')
+    .matches(aadhaarRegex, 'Aadhaar number must be exactly 12 digits'),
+
+  motherMobileNumber: Yup.string()
+    .required('Mother\'s mobile number is required')
+    .matches(mobileRegex, 'Please enter a valid 10-digit mobile number'),
+
+  motherEmailId: Yup.string()
+    .required('Mother\'s email is required')
+    .matches(emailRegex, 'Please enter a valid email address')
+    .max(100, 'Email cannot exceed 100 characters'),
+
+  // 6. Address of Parents at the time of Birth
+  parentAddressAtBirthTimeLocality: Yup.string()
+    .required('Locality is required')
+    .min(2, 'Locality must be at least 2 characters')
+    .max(200, 'Locality cannot exceed 200 characters'),
+
+  parentAddressAtBirthTimeWardNumber: Yup.string()
+    .required('Ward number is required')
+    .max(50, 'Ward number cannot exceed 50 characters'),
+
+  parentAddressAtBirthTimeTownVillageId: Yup.string()
+    .required('Town/Village is required'),
+
+  parentAddressAtBirthTimeSubdistrictId: Yup.string()
+    .required('Sub-district is required'),
+
+  parentAddressAtBirthTimeDistrictId: Yup.string()
+    .required('District is required'),
+
+  parentAddressAtBirthTimeStateUtId: Yup.string()
+    .required('State/UT is required'),
+
+  parentAddressAtBirthTimePincode: Yup.number()
+    .nullable()
+    .required('Pincode is required')
+    .test('valid-pincode', 'Pincode must be exactly 6 digits', function(value) {
+      return value !== null && pincodeRegex.test(value.toString());
+    }),
+
+  // 7. Permanent Address of Parents
+  permanentAddressOfParentLocality: Yup.string()
+    .required('Permanent locality is required')
+    .min(2, 'Locality must be at least 2 characters')
+    .max(200, 'Locality cannot exceed 200 characters'),
+
+  permanentAddressOfParentWardNumber: Yup.string()
+    .required('Permanent ward number is required')
+    .max(50, 'Ward number cannot exceed 50 characters'),
+
+  permanentAddressOfParentTownVillageId: Yup.string()
+    .required('Permanent town/village is required'),
+
+  permanentAddressOfParentSubdistrictId: Yup.string()
+    .required('Permanent sub-district is required'),
+
+  permanentAddressOfParentDistrictId: Yup.string()
+    .required('Permanent district is required'),
+
+  permanentAddressOfParentStateUtId: Yup.string()
+    .required('Permanent state/UT is required'),
+
+  permanentAddressOfParentPincode: Yup.number()
+    .nullable()
+    .required('Permanent pincode is required')
+    .test('valid-pincode', 'Pincode must be exactly 6 digits', function(value) {
+      return value !== null && pincodeRegex.test(value.toString());
+    }),
+
+  // 8. Place of Birth
+  placeOfBirthId: Yup.string()
+    .required('Place of birth is required')
+    .oneOf(['1', '2', '3'], 'Please select a valid place of birth'),
+
+  hospitalId: Yup.number()
+    .nullable()
+    .when('placeOfBirthId', {
+      is: '1',
+      then: (schema) => schema.required('Hospital selection is required when place of birth is hospital'),
+      otherwise: (schema) => schema.nullable()
+    }),
+
+  // 8.2 Address where birth took place
+  placeOfBirthHouseNo: Yup.string()
+    .required('House number is required')
+    .max(50, 'House number cannot exceed 50 characters'),
+
+  placeOfBirthLocality: Yup.string()
+    .required('Birth place locality is required')
+    .min(2, 'Locality must be at least 2 characters')
+    .max(200, 'Locality cannot exceed 200 characters'),
+
+  placeOfBirthWardNumber: Yup.string()
+    .required('Birth place ward number is required')
+    .max(50, 'Ward number cannot exceed 50 characters'),
+
+  placeOfBirthTownVillageId: Yup.string()
+    .required('Birth place town/village is required'),
+
+  placeOfBirthSubdistrictId: Yup.string()
+    .required('Birth place sub-district is required'),
+
+  placeOfBirthDistrictId: Yup.string()
+    .required('Birth place district is required'),
+
+  placeOfBirthStateUtId: Yup.string()
+    .required('Birth place state/UT is required'),
+
+  placeOfBirthPincode: Yup.number()
+    .nullable()
+    .required('Birth place pincode is required')
+    .test('valid-pincode', 'Pincode must be exactly 6 digits', function(value) {
+      return value !== null && pincodeRegex.test(value.toString());
+    }),
+
+  // 9. Informant Details
+  informantsName: Yup.string()
+    .required('Informant\'s name is required')
+    .min(2, 'Informant\'s name must be at least 2 characters')
+    .max(100, 'Informant\'s name cannot exceed 100 characters')
+    .matches(/^[a-zA-Z\s]+$/, 'Informant\'s name should only contain letters and spaces'),
+
+  informantsAadhaarNumber: Yup.string()
+    .required('Informant\'s Aadhaar number is required')
+    .matches(aadhaarRegex, 'Aadhaar number must be exactly 12 digits'),
+
+  informantsMobileNumber: Yup.string()
+    .required('Informant\'s mobile number is required')
+    .matches(mobileRegex, 'Please enter a valid 10-digit mobile number'),
+
+  informantsEmailId: Yup.string()
+    .required('Informant\'s email is required')
+    .matches(emailRegex, 'Please enter a valid email address')
+    .max(100, 'Email cannot exceed 100 characters'),
+
+  informantsHouseNo: Yup.string()
+    .required('Informant\'s house number is required')
+    .max(50, 'House number cannot exceed 50 characters'),
+
+  informantsLocality: Yup.string()
+    .required('Informant\'s locality is required')
+    .min(2, 'Locality must be at least 2 characters')
+    .max(200, 'Locality cannot exceed 200 characters'),
+
+  informantsWardNumber: Yup.string()
+    .required('Informant\'s ward number is required')
+    .max(50, 'Ward number cannot exceed 50 characters'),
+
+  informantsTownVillageId: Yup.string()
+    .required('Informant\'s town/village is required'),
+
+  informantsSubdistrictId: Yup.string()
+    .required('Informant\'s sub-district is required'),
+
+  informantsDistrictId: Yup.string()
+    .required('Informant\'s district is required'),
+
+  informantsStateUtId: Yup.string()
+    .required('Informant\'s state/UT is required'),
+
+  informantsPincode: Yup.number()
+    .nullable()
+    .required('Informant\'s pincode is required')
+    .test('valid-pincode', 'Pincode must be exactly 6 digits', function(value) {
+      return value !== null && pincodeRegex.test(value.toString());
+    }),
+
+  // 10. Residence of the mother
+  residenceOfMotherTownVillage: Yup.string()
+    .required('Mother\'s residence town/village is required')
+    .min(2, 'Town/village must be at least 2 characters')
+    .max(100, 'Town/village cannot exceed 100 characters'),
+
+  residenceOfMotherSubdistrictId: Yup.string()
+    .required('Mother\'s residence sub-district is required'),
+
+  residenceOfMotherDistrictId: Yup.string()
+    .required('Mother\'s residence district is required'),
+
+  residenceOfMotherStateUtId: Yup.string()
+    .required('Mother\'s residence state/UT is required'),
+
+  residenceOfMotherPincode: Yup.number()
+    .nullable()
+    .required('Mother\'s residence pincode is required')
+    .test('valid-pincode', 'Pincode must be exactly 6 digits', function(value) {
+      return value !== null && pincodeRegex.test(value.toString());
+    }),
+
+  // 11. Religion
+  fatherReligionId: Yup.number()
+    .nullable()
+    .required('Father\'s religion is required'),
+
+  motherReligionId: Yup.number()
+    .nullable()
+    .required('Mother\'s religion is required'),
+
+  // 12 & 13. Education
+  fatherEducationId: Yup.number()
+    .nullable()
+    .required('Father\'s education is required'),
+
+  motherEducationId: Yup.number()
+    .nullable()
+    .required('Mother\'s education is required'),
+
+  // 14 & 15. Occupation
+  fatherOccupationId: Yup.number()
+    .nullable()
+    .required('Father\'s occupation is required'),
+
+  motherOccupationId: Yup.number()
+    .nullable()
+    .required('Mother\'s occupation is required'),
+
+  // 16. Mother's age at time of marriage
+  motherAgeAtTimeOfMarriage: Yup.number()
+    .nullable()
+    .required('Mother\'s age at marriage is required')
+    .min(18, 'Mother\'s age at marriage must be at least 18 years')
+    .max(60, 'Please enter a valid age'),
+
+  // 17. Mother's age at time of birth
+  motherAgeAtTimeOfBirth: Yup.number()
+    .nullable()
+    .required('Mother\'s age at birth is required')
+    .min(15, 'Please enter a valid age')
+    .max(60, 'Please enter a valid age')
+    .test('age-logic', 'Mother\'s age at birth should be greater than age at marriage', function(value) {
+      const { motherAgeAtTimeOfMarriage } = this.parent;
+      if (motherAgeAtTimeOfMarriage && value) {
+        return value >= motherAgeAtTimeOfMarriage;
+      }
+      return true;
+    }),
+
+  // 18. Number of children
+  numberOfChildren: Yup.number()
+    .nullable()
+    .required('Number of children is required')
+    .min(1, 'Number of children must be at least 1')
+    .max(20, 'Please enter a valid number'),
+
+  // 19. Type of attention at delivery
+  typeOfAttentionId: Yup.number()
+    .nullable()
+    .required('Type of attention at delivery is required')
+    .oneOf([1, 2, 3, 4, 5], 'Please select a valid option'),
+
+  // 20. Method of Delivery
+  methodOfDeliveryId: Yup.number()
+    .nullable()
+    .required('Method of delivery is required')
+    .oneOf([1, 2, 3], 'Please select a valid delivery method'),
+
+  // 21. Birth Weight
+  childBirthWeight: Yup.string()
+    .required('Child\'s birth weight is required')
+    .test('valid-weight', 'Please enter a valid weight in kg (e.g., 2.5)', function(value) {
+      if (!value) return false;
+      const weight = parseFloat(value);
+      return !isNaN(weight) && weight > 0 && weight <= 10;
+    }),
+
+  // 22. Duration of pregnancy
+  durationOfPregnancy: Yup.string()
+    .required('Duration of pregnancy is required')
+    .test('valid-duration', 'Please enter a valid duration in weeks (20-45)', function(value) {
+      if (!value) return false;
+      const weeks = parseInt(value);
+      return !isNaN(weeks) && weeks >= 20 && weeks <= 45;
+    }),
+
+  // Declaration
+  declaration: Yup.boolean()
+    .required('Declaration is required')
+    .oneOf([true], 'You must accept the declaration to proceed')
+});
+
+// Optional: Create partial validation schemas for step-by-step validation
+export const childDetailsValidation = birthRegistrationValidationSchema.pick([
+  'childDateOfBirth',
+  'childGenderId',
+  'childName',
+  'childAadhaarNumber'
+]);
+
+export const parentsDetailsValidation = birthRegistrationValidationSchema.pick([
+  'fatherName',
+  'fatherAadhaarNumber',
+  'fatherMobileNumber',
+  'fatherEmailId',
+  'motherName',
+  'motherAadhaarNumber',
+  'motherMobileNumber',
+  'motherEmailId'
+]);
+
+export const addressValidation = birthRegistrationValidationSchema.pick([
+  'parentAddressAtBirthTimeLocality',
+  'parentAddressAtBirthTimeWardNumber',
+  'parentAddressAtBirthTimeTownVillageId',
+  'parentAddressAtBirthTimeSubdistrictId',
+  'parentAddressAtBirthTimeDistrictId',
+  'parentAddressAtBirthTimeStateUtId',
+  'parentAddressAtBirthTimePincode',
+  'permanentAddressOfParentLocality',
+  'permanentAddressOfParentWardNumber',
+  'permanentAddressOfParentTownVillageId',
+  'permanentAddressOfParentSubdistrictId',
+  'permanentAddressOfParentDistrictId',
+  'permanentAddressOfParentStateUtId',
+  'permanentAddressOfParentPincode'
+]);
+
+// Example usage with Formik or react-hook-form:
+/*
+import { useFormik } from 'formik';
+// or
+import { useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+
+// With Formik:
+const formik = useFormik({
+  initialValues: defaultValues,
+  validationSchema: birthRegistrationValidationSchema,
+  onSubmit: (values) => {
+    console.log('Form submitted:', values);
+  }
+});
+
+// With react-hook-form:
+const { register, handleSubmit, formState: { errors } } = useForm({
+  resolver: yupResolver(birthRegistrationValidationSchema),
+  defaultValues: defaultValues
+});
+*/
 
 
 // Birth Registration Form Interface
