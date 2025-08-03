@@ -466,6 +466,8 @@ export const ActionButtonsContainer: React.FC<{
 // ==========================================
 // SIMPLIFIED COLUMN DEFINITION
 // ==========================================
+
+
 export const getOptimizedColumns = (
   columnHelper: any,
   activePage: number,
@@ -499,6 +501,37 @@ export const getOptimizedColumns = (
 ];
 
 
+
+
+
+ const actionHandlers = {
+    handleMoreDataClick,
+    setChallanId,
+    setrowData,
+    setShowRupee,
+    setDocumentVerificationFileshow,
+    setInspectionShow,
+    setDocumentVerificationShow,
+    navigator,
+    setTradeData,
+    setShow,
+    setData,
+    setstatusId,
+    handleRupeeClick1,
+    handleRupeeClick,
+  };
+
+  const columns = getOptimizedColumns(
+    columnHelper,
+    activePage,
+    pageSize,
+    Role,
+    user,
+    actionHandlers,
+    getDataColumns,
+    setTracking,
+    setTrackingData
+  );
 
 
 
