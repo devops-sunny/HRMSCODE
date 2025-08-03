@@ -1,4 +1,103 @@
+
+
 import React, { useState } from 'react';
+
+
+
+
+const createTradeQuery = (queryFn: () => Promise<any>, key: string) => ({
+  queryKey: [key],
+  queryFn,
+  staleTime: 5 * 60 * 1000,
+  cacheTime: 10 * 60 * 1000,
+  refetchOnWindowFocus: false,
+  retry: 2,
+});
+
+export const useTradeQueriesUtility = () => {
+  const queryConfigs = [
+    createTradeQuery(TradePropertyTitle, "TradePropertyTitle"),
+    createTradeQuery(TradeOwnershipMaster, "TradeOwnershipMaster"),
+    createTradeQuery(TradeLicenseTypeMaster, "TradeLicenseTypeMaster"),
+    createTradeQuery(TradeFloorMaster, "TradeFloorMaster"),
+    createTradeQuery(TradeConstitutionTtype, "TradeConstitutionType"),
+    createTradeQuery(TradeDiscriptionMaster, "TradeDiscriptionMaster"),
+    createTradeQuery(TradeAreaMaster, "TradeAreaMaster"),
+    createTradeQuery(TradePremisesStatusType, "TradePremisesStatusType"),
+  ];
+
+  const queries = useQueries({ queries: queryConfigs });
+
+  return {
+    TradePropertyTitledata: queries[0].data,
+    TradeOwnershipMasterdata: queries[1].data,
+    TradeLicenseTypeMasterdata: queries[2].data,
+    TradeFloorMasterdata: queries[3].data,
+    TradeConstitutionTtypedata: queries[4].data,
+    TradeDiscriptionMasterdata: queries[5].data,
+    TradeAreaMasterdata: queries[6].data,
+    TradePremisesStatusTypeData: queries[7].data,
+    isLoading: queries.some(q => q.isLoading),
+    isError: queries.some(q => q.isError),
+    errors: queries.filter(q => q.error).map(q => q.error),
+  };
+};
+
+
+
+
+  const {
+    TradePropertyTitledata,
+    TradeOwnershipMasterdata,
+    TradeLicenseTypeMasterdata,
+    TradeFloorMasterdata,
+    TradeConstitutionTtypedata,
+    TradeDiscriptionMasterdata,
+    TradeAreaMasterdata,
+    TradePremisesStatusTypeData,
+    isLoading,
+    isError,
+  } = useTradeQueriesUtility();
+
+  if (isLoading) return <div>Loading...</div>;
+  if (isError) return <div>Error loading data</div>;
+
+
+
+
+
+
+
+
+
+
+
+
+
+const currentValidationSchema = useMemo(() => {
+    switch (state.currentStep) {
+      case 1: return validationSchema;
+      case 2: return validationSchema2;
+      case 3: return validationSchema3;
+      default: return validationSchema;
+    }
+  }, [state.currentStep]);
+
+  // Form setup
+  const methods = useForm<TradeLicenseFormValues>({
+    resolver: yupResolver(currentValidationSchema),
+    defaultValues,
+    mode: 'onChange', // Enable real-time validation
+  });
+
+
+
+
+
+
+
+
+
 
 const HealthLicenseForm = () => {
   // State management
