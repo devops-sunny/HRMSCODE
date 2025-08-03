@@ -1,2429 +1,810 @@
-import { yupResolver } from "@hookform/resolvers/yup";
-import * as Yup from 'yup';
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
-import FormProvider from "../../../hook-form/FormProvider";
-import RHFCheckbox from "../../../hook-form/RHFCheckbox";
-import RHFDatePicker from "../../../hook-form/RHFDatePicker";
-import RHFFileUpload from "../../../hook-form/RHFFileUpload";
-import RHFSelect from "../../../hook-form/RHFSelect";
-import RHFTextField from "../../../hook-form/RHFTextField";
-import {
-  birthCertificateRegistrationPostData,
-  birthUpdatePostData,
-  hospitalsUpdatePostData,
-} from "../../../services/birthCertificateRegistration/birthCertificateRegistrationServices";
-import {
-  CityAPI,
-  CountryAPI,
-  DistrictAPI,
-  EducationAPI,
-  getBirthPlacesAPI,
-  NationalityAPI,
-  ReligionAPI,
-  stateAPI,
-  TehsilAPI,
-  OccupationAPI,
-} from "../../../services/Master/Master";
-import birthStore from "../../../store/birth-store";
-import { validationSchema } from "./validationSchema";
-import { download } from "../../../services/Table/TableServices";
-import moment from "moment";
-import { base64ToBlob } from "../../../utils/string";
-
-
-
-
-// Helper function to validate Aadhaar number format
-const aadhaarRegex = /^\d{12}$/;
-const mobileRegex = /^[6-9]\d{9}$/;
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const pincodeRegex = /^\d{6}$/;
-
-export const birthRegistrationValidationSchema = Yup.object().shape({
-  // 1. Child's Date of Birth
-  childDateOfBirth: Yup.string()
-    .required('Child\'s date of birth is required')
-    .test('valid-date', 'Please enter a valid date', function(value) {
-      if (!value) return false;
-      const date = new Date(value);
-      const today = new Date();
-      return date instanceof Date && !isNaN(date.getTime()) && date <= today;
-    })
-    .test('not-future', 'Birth date cannot be in the future', function(value) {
-      if (!value) return true;
-      const birthDate = new Date(value);
-      const today = new Date();
-      return birthDate <= today;
-    }),
-
-  // 2. Child's Gender
-  childGenderId: Yup.number()
-    .nullable()
-    .required('Child\'s gender is required')
-    .oneOf([1, 2, 3], 'Please select a valid gender option'),
-
-  // 3. Child's Details
-  childName: Yup.string()
-    .required('Child\'s name is required')
-    .min(2, 'Child\'s name must be at least 2 characters')
-    .max(100, 'Child\'s name cannot exceed 100 characters')
-    .matches(/^[a-zA-Z\s]+$/, 'Child\'s name should only contain letters and spaces'),
-
-  childAadhaarNumber: Yup.string()
-    .required('Child\'s Aadhaar number is required')
-    .matches(aadhaarRegex, 'Aadhaar number must be exactly 12 digits'),
-
-  // 4. Father's Details
-  fatherName: Yup.string()
-    .required('Father\'s name is required')
-    .min(2, 'Father\'s name must be at least 2 characters')
-    .max(100, 'Father\'s name cannot exceed 100 characters')
-    .matches(/^[a-zA-Z\s]+$/, 'Father\'s name should only contain letters and spaces'),
-
-  fatherAadhaarNumber: Yup.string()
-    .required('Father\'s Aadhaar number is required')
-    .matches(aadhaarRegex, 'Aadhaar number must be exactly 12 digits'),
-
-  fatherMobileNumber: Yup.string()
-    .required('Father\'s mobile number is required')
-    .matches(mobileRegex, 'Please enter a valid 10-digit mobile number'),
-
-  fatherEmailId: Yup.string()
-    .required('Father\'s email is required')
-    .matches(emailRegex, 'Please enter a valid email address')
-    .max(100, 'Email cannot exceed 100 characters'),
-
-  // 5. Mother's Details
-  motherName: Yup.string()
-    .required('Mother\'s name is required')
-    .min(2, 'Mother\'s name must be at least 2 characters')
-    .max(100, 'Mother\'s name cannot exceed 100 characters')
-    .matches(/^[a-zA-Z\s]+$/, 'Mother\'s name should only contain letters and spaces'),
-
-  motherAadhaarNumber: Yup.string()
-    .required('Mother\'s Aadhaar number is required')
-    .matches(aadhaarRegex, 'Aadhaar number must be exactly 12 digits'),
-
-  motherMobileNumber: Yup.string()
-    .required('Mother\'s mobile number is required')
-    .matches(mobileRegex, 'Please enter a valid 10-digit mobile number'),
-
-  motherEmailId: Yup.string()
-    .required('Mother\'s email is required')
-    .matches(emailRegex, 'Please enter a valid email address')
-    .max(100, 'Email cannot exceed 100 characters'),
-
-  // 6. Address of Parents at the time of Birth
-  parentAddressAtBirthTimeLocality: Yup.string()
-    .required('Locality is required')
-    .min(2, 'Locality must be at least 2 characters')
-    .max(200, 'Locality cannot exceed 200 characters'),
-
-  parentAddressAtBirthTimeWardNumber: Yup.string()
-    .required('Ward number is required')
-    .max(50, 'Ward number cannot exceed 50 characters'),
-
-  parentAddressAtBirthTimeTownVillageId: Yup.string()
-    .required('Town/Village is required'),
-
-  parentAddressAtBirthTimeSubdistrictId: Yup.string()
-    .required('Sub-district is required'),
-
-  parentAddressAtBirthTimeDistrictId: Yup.string()
-    .required('District is required'),
-
-  parentAddressAtBirthTimeStateUtId: Yup.string()
-    .required('State/UT is required'),
-
-  parentAddressAtBirthTimePincode: Yup.number()
-    .nullable()
-    .required('Pincode is required')
-    .test('valid-pincode', 'Pincode must be exactly 6 digits', function(value) {
-      return value !== null && pincodeRegex.test(value.toString());
-    }),
-
-  // 7. Permanent Address of Parents
-  permanentAddressOfParentLocality: Yup.string()
-    .required('Permanent locality is required')
-    .min(2, 'Locality must be at least 2 characters')
-    .max(200, 'Locality cannot exceed 200 characters'),
-
-  permanentAddressOfParentWardNumber: Yup.string()
-    .required('Permanent ward number is required')
-    .max(50, 'Ward number cannot exceed 50 characters'),
-
-  permanentAddressOfParentTownVillageId: Yup.string()
-    .required('Permanent town/village is required'),
-
-  permanentAddressOfParentSubdistrictId: Yup.string()
-    .required('Permanent sub-district is required'),
-
-  permanentAddressOfParentDistrictId: Yup.string()
-    .required('Permanent district is required'),
-
-  permanentAddressOfParentStateUtId: Yup.string()
-    .required('Permanent state/UT is required'),
-
-  permanentAddressOfParentPincode: Yup.number()
-    .nullable()
-    .required('Permanent pincode is required')
-    .test('valid-pincode', 'Pincode must be exactly 6 digits', function(value) {
-      return value !== null && pincodeRegex.test(value.toString());
-    }),
-
-  // 8. Place of Birth
-  placeOfBirthId: Yup.string()
-    .required('Place of birth is required')
-    .oneOf(['1', '2', '3'], 'Please select a valid place of birth'),
-
-  hospitalId: Yup.number()
-    .nullable()
-    .when('placeOfBirthId', {
-      is: '1',
-      then: (schema) => schema.required('Hospital selection is required when place of birth is hospital'),
-      otherwise: (schema) => schema.nullable()
-    }),
-
-  // 8.2 Address where birth took place
-  placeOfBirthHouseNo: Yup.string()
-    .required('House number is required')
-    .max(50, 'House number cannot exceed 50 characters'),
-
-  placeOfBirthLocality: Yup.string()
-    .required('Birth place locality is required')
-    .min(2, 'Locality must be at least 2 characters')
-    .max(200, 'Locality cannot exceed 200 characters'),
-
-  placeOfBirthWardNumber: Yup.string()
-    .required('Birth place ward number is required')
-    .max(50, 'Ward number cannot exceed 50 characters'),
-
-  placeOfBirthTownVillageId: Yup.string()
-    .required('Birth place town/village is required'),
-
-  placeOfBirthSubdistrictId: Yup.string()
-    .required('Birth place sub-district is required'),
-
-  placeOfBirthDistrictId: Yup.string()
-    .required('Birth place district is required'),
-
-  placeOfBirthStateUtId: Yup.string()
-    .required('Birth place state/UT is required'),
-
-  placeOfBirthPincode: Yup.number()
-    .nullable()
-    .required('Birth place pincode is required')
-    .test('valid-pincode', 'Pincode must be exactly 6 digits', function(value) {
-      return value !== null && pincodeRegex.test(value.toString());
-    }),
-
-  // 9. Informant Details
-  informantsName: Yup.string()
-    .required('Informant\'s name is required')
-    .min(2, 'Informant\'s name must be at least 2 characters')
-    .max(100, 'Informant\'s name cannot exceed 100 characters')
-    .matches(/^[a-zA-Z\s]+$/, 'Informant\'s name should only contain letters and spaces'),
-
-  informantsAadhaarNumber: Yup.string()
-    .required('Informant\'s Aadhaar number is required')
-    .matches(aadhaarRegex, 'Aadhaar number must be exactly 12 digits'),
-
-  informantsMobileNumber: Yup.string()
-    .required('Informant\'s mobile number is required')
-    .matches(mobileRegex, 'Please enter a valid 10-digit mobile number'),
-
-  informantsEmailId: Yup.string()
-    .required('Informant\'s email is required')
-    .matches(emailRegex, 'Please enter a valid email address')
-    .max(100, 'Email cannot exceed 100 characters'),
-
-  informantsHouseNo: Yup.string()
-    .required('Informant\'s house number is required')
-    .max(50, 'House number cannot exceed 50 characters'),
-
-  informantsLocality: Yup.string()
-    .required('Informant\'s locality is required')
-    .min(2, 'Locality must be at least 2 characters')
-    .max(200, 'Locality cannot exceed 200 characters'),
-
-  informantsWardNumber: Yup.string()
-    .required('Informant\'s ward number is required')
-    .max(50, 'Ward number cannot exceed 50 characters'),
-
-  informantsTownVillageId: Yup.string()
-    .required('Informant\'s town/village is required'),
-
-  informantsSubdistrictId: Yup.string()
-    .required('Informant\'s sub-district is required'),
-
-  informantsDistrictId: Yup.string()
-    .required('Informant\'s district is required'),
-
-  informantsStateUtId: Yup.string()
-    .required('Informant\'s state/UT is required'),
-
-  informantsPincode: Yup.number()
-    .nullable()
-    .required('Informant\'s pincode is required')
-    .test('valid-pincode', 'Pincode must be exactly 6 digits', function(value) {
-      return value !== null && pincodeRegex.test(value.toString());
-    }),
-
-  // 10. Residence of the mother
-  residenceOfMotherTownVillage: Yup.string()
-    .required('Mother\'s residence town/village is required')
-    .min(2, 'Town/village must be at least 2 characters')
-    .max(100, 'Town/village cannot exceed 100 characters'),
-
-  residenceOfMotherSubdistrictId: Yup.string()
-    .required('Mother\'s residence sub-district is required'),
-
-  residenceOfMotherDistrictId: Yup.string()
-    .required('Mother\'s residence district is required'),
-
-  residenceOfMotherStateUtId: Yup.string()
-    .required('Mother\'s residence state/UT is required'),
-
-  residenceOfMotherPincode: Yup.number()
-    .nullable()
-    .required('Mother\'s residence pincode is required')
-    .test('valid-pincode', 'Pincode must be exactly 6 digits', function(value) {
-      return value !== null && pincodeRegex.test(value.toString());
-    }),
-
-  // 11. Religion
-  fatherReligionId: Yup.number()
-    .nullable()
-    .required('Father\'s religion is required'),
-
-  motherReligionId: Yup.number()
-    .nullable()
-    .required('Mother\'s religion is required'),
-
-  // 12 & 13. Education
-  fatherEducationId: Yup.number()
-    .nullable()
-    .required('Father\'s education is required'),
-
-  motherEducationId: Yup.number()
-    .nullable()
-    .required('Mother\'s education is required'),
-
-  // 14 & 15. Occupation
-  fatherOccupationId: Yup.number()
-    .nullable()
-    .required('Father\'s occupation is required'),
-
-  motherOccupationId: Yup.number()
-    .nullable()
-    .required('Mother\'s occupation is required'),
-
-  // 16. Mother's age at time of marriage
-  motherAgeAtTimeOfMarriage: Yup.number()
-    .nullable()
-    .required('Mother\'s age at marriage is required')
-    .min(18, 'Mother\'s age at marriage must be at least 18 years')
-    .max(60, 'Please enter a valid age'),
-
-  // 17. Mother's age at time of birth
-  motherAgeAtTimeOfBirth: Yup.number()
-    .nullable()
-    .required('Mother\'s age at birth is required')
-    .min(15, 'Please enter a valid age')
-    .max(60, 'Please enter a valid age')
-    .test('age-logic', 'Mother\'s age at birth should be greater than age at marriage', function(value) {
-      const { motherAgeAtTimeOfMarriage } = this.parent;
-      if (motherAgeAtTimeOfMarriage && value) {
-        return value >= motherAgeAtTimeOfMarriage;
-      }
-      return true;
-    }),
-
-  // 18. Number of children
-  numberOfChildren: Yup.number()
-    .nullable()
-    .required('Number of children is required')
-    .min(1, 'Number of children must be at least 1')
-    .max(20, 'Please enter a valid number'),
-
-  // 19. Type of attention at delivery
-  typeOfAttentionId: Yup.number()
-    .nullable()
-    .required('Type of attention at delivery is required')
-    .oneOf([1, 2, 3, 4, 5], 'Please select a valid option'),
-
-  // 20. Method of Delivery
-  methodOfDeliveryId: Yup.number()
-    .nullable()
-    .required('Method of delivery is required')
-    .oneOf([1, 2, 3], 'Please select a valid delivery method'),
-
-  // 21. Birth Weight
-  childBirthWeight: Yup.string()
-    .required('Child\'s birth weight is required')
-    .test('valid-weight', 'Please enter a valid weight in kg (e.g., 2.5)', function(value) {
-      if (!value) return false;
-      const weight = parseFloat(value);
-      return !isNaN(weight) && weight > 0 && weight <= 10;
-    }),
-
-  // 22. Duration of pregnancy
-  durationOfPregnancy: Yup.string()
-    .required('Duration of pregnancy is required')
-    .test('valid-duration', 'Please enter a valid duration in weeks (20-45)', function(value) {
-      if (!value) return false;
-      const weeks = parseInt(value);
-      return !isNaN(weeks) && weeks >= 20 && weeks <= 45;
-    }),
-
-  // Declaration
-  declaration: Yup.boolean()
-    .required('Declaration is required')
-    .oneOf([true], 'You must accept the declaration to proceed')
-});
-
-// Optional: Create partial validation schemas for step-by-step validation
-export const childDetailsValidation = birthRegistrationValidationSchema.pick([
-  'childDateOfBirth',
-  'childGenderId',
-  'childName',
-  'childAadhaarNumber'
-]);
-
-export const parentsDetailsValidation = birthRegistrationValidationSchema.pick([
-  'fatherName',
-  'fatherAadhaarNumber',
-  'fatherMobileNumber',
-  'fatherEmailId',
-  'motherName',
-  'motherAadhaarNumber',
-  'motherMobileNumber',
-  'motherEmailId'
-]);
-
-export const addressValidation = birthRegistrationValidationSchema.pick([
-  'parentAddressAtBirthTimeLocality',
-  'parentAddressAtBirthTimeWardNumber',
-  'parentAddressAtBirthTimeTownVillageId',
-  'parentAddressAtBirthTimeSubdistrictId',
-  'parentAddressAtBirthTimeDistrictId',
-  'parentAddressAtBirthTimeStateUtId',
-  'parentAddressAtBirthTimePincode',
-  'permanentAddressOfParentLocality',
-  'permanentAddressOfParentWardNumber',
-  'permanentAddressOfParentTownVillageId',
-  'permanentAddressOfParentSubdistrictId',
-  'permanentAddressOfParentDistrictId',
-  'permanentAddressOfParentStateUtId',
-  'permanentAddressOfParentPincode'
-]);
-
-// Example usage with Formik or react-hook-form:
-/*
-import { useFormik } from 'formik';
-// or
-import { useForm } from 'react-hook-form';
-import { yupResolver } from '@hookform/resolvers/yup';
-
-// With Formik:
-const formik = useFormik({
-  initialValues: defaultValues,
-  validationSchema: birthRegistrationValidationSchema,
-  onSubmit: (values) => {
-    console.log('Form submitted:', values);
-  }
-});
-
-// With react-hook-form:
-const { register, handleSubmit, formState: { errors } } = useForm({
-  resolver: yupResolver(birthRegistrationValidationSchema),
-  defaultValues: defaultValues
-});
-*/
-
-
-// Birth Registration Form Interface
-export interface BirthRegistrationForm {
-  // 1. Child's Date of Birth
-  childDateOfBirth: string;
-
-  // 2. Sex (Gender ID: 1 = Male, 2 = Female, 3 = Transgender)
-  childGenderId: number | null;
-
-  // 3. Child's Full Name and Aadhaar
-  childName: string;
-  childAadhaarNumber: string;
-
-  // 4. Father's Details
-  fatherName: string;
-  fatherAadhaarNumber: string;
-  fatherMobileNumber: string;
-  fatherEmailId: string;
-
-  // 5. Mother's Details
-  motherName: string;
-  motherAadhaarNumber: string;
-  motherMobileNumber: string;
-  motherEmailId: string;
-
-  // 6. Address of Parents at the time of Birth
-  parentAddressAtBirthTimeLocality: string;
-  parentAddressAtBirthTimeWardNumber: string;
-  parentAddressAtBirthTimeTownVillageId: string;
-  parentAddressAtBirthTimeSubdistrictId: string;
-  parentAddressAtBirthTimeDistrictId: string;
-  parentAddressAtBirthTimeStateUtId: string;
-  parentAddressAtBirthTimePincode: number | null;
-
-  // 7. Permanent Address of Parents
-  permanentAddressOfParentLocality: string;
-  permanentAddressOfParentWardNumber: string;
-  permanentAddressOfParentTownVillageId: string;
-  permanentAddressOfParentSubdistrictId: string;
-  permanentAddressOfParentDistrictId: string;
-  permanentAddressOfParentStateUtId: string;
-  permanentAddressOfParentPincode: number | null;
-
-  // 8. Place of Birth
-  placeOfBirthId: string; // '1' = Hospital, '2' = House, '3' = Other
-  hospitalId: number | null; // Only applicable if placeOfBirthId = 1
-
-  // 8.2 Address where birth took place
-  placeOfBirthHouseNo: string;
-  placeOfBirthLocality: string;
-  placeOfBirthWardNumber: string;
-  placeOfBirthTownVillageId: string;
-  placeOfBirthSubdistrictId: string;
-  placeOfBirthDistrictId: string;
-  placeOfBirthStateUtId: string;
-  placeOfBirthPincode: number | null;
-
-  // 9. Informant Details
-  informantsName: string;
-  informantsAadhaarNumber: string;
-  informantsMobileNumber: string;
-  informantsEmailId: string;
-  informantsHouseNo: string;
-  informantsLocality: string;
-  informantsWardNumber: string;
-  informantsTownVillageId: string;
-  informantsSubdistrictId: string;
-  informantsDistrictId: string;
-  informantsStateUtId: string;
-  informantsPincode: number | null;
-
-  // 10. Residence of the mother (town/village)
-  residenceOfMotherTownVillage: string;
-  residenceOfMotherSubdistrictId: string;
-  residenceOfMotherDistrictId: string;
-  residenceOfMotherStateUtId: string;
-  residenceOfMotherPincode: number | null;
-
-  // 11. Religion (dropdown or mapped ID)
-  fatherReligionId: number | null;
-  motherReligionId: number | null;
-
-  // 12 & 13. Education
-  fatherEducationId: number | null;
-  motherEducationId: number | null;
-
-  // 14 & 15. Occupation
-  fatherOccupationId: number | null;
-  motherOccupationId: number | null;
-
-  // 16. Mother's age at time of marriage (in completed years)
-  motherAgeAtTimeOfMarriage: number | null;
-
-  // 17. Mother's age at time of birth (in completed years)
-  motherAgeAtTimeOfBirth: number | null;
-
-  // 18. Number of children born alive to the mother so far
-  numberOfChildren: number | null;
-
-  // 19. Type of attention at delivery
-  // 1 = Institutional-Government, 2 = Institutional-Private, 3 = Doctor/Nurse, 4 = Traditional Attendant, 5 = Relatives/Others
-  typeOfAttentionId: number | null;
-
-  // 20. Method of Delivery
-  // 1 = Natural, 2 = Caesarean, 3 = Forceps/Vacuum
-  methodOfDeliveryId: number | null;
-
-  // 21. Birth Weight (if available)
-  childBirthWeight: string;
-
-  // 22. Duration of pregnancy (in weeks)
-  durationOfPregnancy: string;
-
-  // Declaration checkbox
-  declaration: boolean;
-}
-
-
-
-const defaultValues: BirthRegistrationForm = {
-  childDateOfBirth: "",
-  childGenderId: null,
-  childName: "",
-  childAadhaarNumber: "",
+import React, { useState } from 'react';
+
+const HealthLicenseForm = () => {
+  // State management
+  const [partners, setPartners] = useState([{ partnerName: '', partnerAadharNumber: '', partnerAddress: '' }]);
+  const [floors, setFloors] = useState([{ floorId: '', coveredAreaOfFloor: '', unitAreaInSquareMtr: '' }]);
   
-  fatherName: "",
-  fatherAadhaarNumber: "",
-  fatherMobileNumber: "",
-  fatherEmailId: "",
+  const watch = (field) => field === "licenseTypeId" ? "2" : "";
+  const setTradeDescription = (value) => console.log("Trade Description:", value);
+  const postbirthCertificateDatafn2 = (data) => console.log("Download:", data);
+  const moment = () => ({ subtract: (i) => ({ year: () => new Date().getFullYear() - i }) });
   
-  motherName: "",
-  motherAadhaarNumber: "",
-  motherMobileNumber: "",
-  motherEmailId: "",
-  
-  parentAddressAtBirthTimeLocality: "",
-  parentAddressAtBirthTimeWardNumber: "",
-  parentAddressAtBirthTimeTownVillageId: "",
-  parentAddressAtBirthTimeSubdistrictId: "",
-  parentAddressAtBirthTimeDistrictId: "",
-  parentAddressAtBirthTimeStateUtId: "",
-  parentAddressAtBirthTimePincode: null,
-  
-  permanentAddressOfParentLocality: "",
-  permanentAddressOfParentWardNumber: "",
-  permanentAddressOfParentTownVillageId: "",
-  permanentAddressOfParentSubdistrictId: "",
-  permanentAddressOfParentDistrictId: "",
-  permanentAddressOfParentStateUtId: "",
-  permanentAddressOfParentPincode: null,
-  
-  placeOfBirthId: "",
-  hospitalId: null,
-  
-  placeOfBirthHouseNo: "",
-  placeOfBirthLocality: "",
-  placeOfBirthWardNumber: "",
-  placeOfBirthTownVillageId: "",
-  placeOfBirthSubdistrictId: "",
-  placeOfBirthDistrictId: "",
-  placeOfBirthStateUtId: "",
-  placeOfBirthPincode: null,
-  
-  informantsName: "",
-  informantsAadhaarNumber: "",
-  informantsMobileNumber: "",
-  informantsEmailId: "",
-  informantsHouseNo: "",
-  informantsLocality: "",
-  informantsWardNumber: "",
-  informantsTownVillageId: "",
-  informantsSubdistrictId: "",
-  informantsDistrictId: "",
-  informantsStateUtId: "",
-  informantsPincode: null,
-  
-  residenceOfMotherTownVillage: "",
-  residenceOfMotherSubdistrictId: "",
-  residenceOfMotherDistrictId: "",
-  residenceOfMotherStateUtId: "",
-  residenceOfMotherPincode: null,
-  
-  fatherReligionId: null,
-  motherReligionId: null,
-  
-  fatherEducationId: null,
-  motherEducationId: null,
-  
-  fatherOccupationId: null,
-  motherOccupationId: null,
-  
-  motherAgeAtTimeOfMarriage: null,
-  motherAgeAtTimeOfBirth: null,
-  numberOfChildren: null,
-  
-  typeOfAttentionId: null,
-  methodOfDeliveryId: null,
-  
-  childBirthWeight: "",
-  durationOfPregnancy: "",
-  
-  declaration: false,
-};
+  const TradeLicenseTypeMasterdata = [];
+  const TradeData = { existing_license_picture: "", license_keeper_picture: "", aadhar_picture: "" };
+  const TradeAreaMasterdata = [];
+  const TradePremisesStatusTypeData = [];
+  const TradeConstitutionTtypedata = [];
+  const TradePropertyTitledata = [];
+  const TradeOwnershipMasterdata = [];
+  const TradeFloorMasterdata = [];
+  const TradeDiscriptionMasterdata = [];
+  const UnderSection = "Section 123";
 
-const BirthRegistrationFormComponent = () => {
-  const navigate = useNavigate();
-  const { birthData, clearUserStore } = birthStore();
-  const [isSubmitDisabled, setIsSubmitDisabled] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
-  
-  // State for address dropdowns - Parent Address at Birth Time
-  const [parentBirthTimeState, setParentBirthTimeState] = useState("");
-  const [parentBirthTimeDistrict, setParentBirthTimeDistrict] = useState("");
-  const [parentBirthTimeTehsil, setParentBirthTimeTehsil] = useState("");
-  
-  // State for address dropdowns - Permanent Address
-  const [permanentAddressState, setPermanentAddressState] = useState("");
-  const [permanentAddressDistrict, setPermanentAddressDistrict] = useState("");
-  const [permanentAddressTehsil, setPermanentAddressTehsil] = useState("");
-  
-  // State for address dropdowns - Place of Birth
-  const [placeOfBirthState, setPlaceOfBirthState] = useState("");
-  const [placeOfBirthDistrict, setPlaceOfBirthDistrict] = useState("");
-  const [placeOfBirthTehsil, setPlaceOfBirthTehsil] = useState("");
-  
-  // State for address dropdowns - Informant Address
-  const [informantState, setInformantState] = useState("");
-  const [informantDistrict, setInformantDistrict] = useState("");
-  const [informantTehsil, setInformantTehsil] = useState("");
-  
-  // State for address dropdowns - Mother's Residence
-  const [motherResidenceState, setMotherResidenceState] = useState("");
-  const [motherResidenceDistrict, setMotherResidenceDistrict] = useState("");
-  const [motherResidenceTehsil, setMotherResidenceTehsil] = useState("");
-  
-  const [sameAsPermanentAddress, setSameAsPermanentAddress] = useState(false);
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [showConfirmation, setShowConfirmation] = useState(false);
+  const licenseTypeField = {
+    number: "1",
+    colClass: "col-md-6 mt-2 mb-2",
+    labelColClass: "col-md-3",
+    inputColClass: "col-md-8",
+    label: "License Type",
+    required: true,
+    component: "RHFRadioGroup",
+    name: "licenseTypeId",
+    options: TradeLicenseTypeMasterdata || []
+  };
 
-  const methods = useForm<BirthRegistrationForm>({
-    resolver: yupResolver(validationSchema),
-    defaultValues,
-    mode: "onChange",
-    reValidateMode: "onChange",
-  });
-
-  const {
-    handleSubmit,
-    formState: { isSubmitting },
-    watch,
-    reset,
-    setValue,
-  } = methods;
-
-  // API Queries for master data
-  const { data: stateData } = useQuery({
-    queryFn: stateAPI,
-    queryKey: ["stateData"],
-  });
-
-  const { data: religionData } = useQuery({
-    queryFn: ReligionAPI,
-    queryKey: ["religionData"],
-  });
-
-  const { data: educationData } = useQuery({
-    queryFn: EducationAPI,
-    queryKey: ["educationData"],
-  });
-
-  const { data: occupationData } = useQuery({
-    queryFn: OccupationAPI,
-    queryKey: ["occupationData"],
-  });
-
-  const { data: hospitalData } = useQuery({
-    queryFn: hospitalsUpdatePostData,
-    queryKey: ["hospitalData"],
-  });
-
-  const { data: birthPlacesData } = useQuery({
-    queryFn: getBirthPlacesAPI,
-    queryKey: ["birthPlacesData"],
-  });
-
-  // District queries for different address sections
-  const { data: parentBirthTimeDistrictData } = useQuery({
-    queryFn: () => {
-      if (parentBirthTimeState !== "") {
-        return DistrictAPI({ id: parentBirthTimeState });
-      }
+  const renewalFields = [
+    {
+      letter: "a",
+      colClass: "col-md-6 mt-2 mb-2",
+      label: "Existing license number",
+      required: true,
+      component: "RHFTextField",
+      name: "existingLicenseNumber",
+      fieldType: "ward"
     },
-    queryKey: ["parentBirthTimeDistrictData", parentBirthTimeState],
-  });
-
-  const { data: permanentAddressDistrictData } = useQuery({
-    queryFn: () => {
-      if (permanentAddressState !== "") {
-        return DistrictAPI({ id: permanentAddressState });
-      }
+    {
+      letter: "b", 
+      colClass: "col-md-6 mt-2 mb-2",
+      label: "Existing license expiry date",
+      required: true,
+      component: "RHFDatePicker",
+      name: "existingLicenseExpiryDate",
+      maxDateToday: true
     },
-    queryKey: ["permanentAddressDistrictData", permanentAddressState],
-  });
-
-  const { data: placeOfBirthDistrictData } = useQuery({
-    queryFn: () => {
-      if (placeOfBirthState !== "") {
-        return DistrictAPI({ id: placeOfBirthState });
-      }
+    {
+      letter: "c",
+      colClass: "col-md-6 mt-2 mb-2", 
+      label: "Existing licence keeper name",
+      required: true,
+      component: "RHFTextField",
+      name: "existingLicenseKeeperName",
+      fieldType: "name",
+      allowTextField: true
     },
-    queryKey: ["placeOfBirthDistrictData", placeOfBirthState],
-  });
+    {
+      letter: "d",
+      colClass: "col-md-6",
+      label: "Picture of existing licence",
+      component: "RHFFileUpload",
+      name: "existingLicensePicture",
+      allowedTypes: ["image/jpeg", "image/png", "application/pdf"],
+      maxSizeInMB: 1,
+      accept: ".jpg,.jpeg,.png,.pdf",
+      hasDownload: true,
+      downloadData: TradeData?.existing_license_picture
+    }
+  ];
 
-  const { data: informantDistrictData } = useQuery({
-    queryFn: () => {
-      if (informantState !== "") {
-        return DistrictAPI({ id: informantState });
-      }
+  const formSections = [
+    {
+      sectionNumber: "2",
+      title: "APPLICANT DETAILS",
+      subtitle: "(Fields marked * are mandatory)",
+      fields: [
+        {
+          letter: "a",
+          colClass: "col-md-6",
+          label: "Applicant Name (As on Aadhar)",
+          required: true,
+          component: "RHFTextField",
+          name: "applicantName",
+          type: "text"
+        },
+        {
+          letter: "b",
+          colClass: "col-md-6", 
+          label: "Applicant Father/Husband Name",
+          required: true,
+          component: "RHFTextField",
+          name: "applicantFatherHusbandName",
+          type: "text",
+          fieldType: "name",
+          allowTextField: true
+        },
+        {
+          letter: "c",
+          colClass: "col-md-6",
+          label: "Applicant Address",
+          required: true,
+          component: "RHFTextarea",
+          name: "applicantAddress"
+        },
+        {
+          letter: "d",
+          colClass: "col-md-6",
+          label: "Name of the Keeper in whose name Licence to be issue",
+          required: true,
+          component: "RHFTextField", 
+          name: "licenseKeeperName",
+          type: "text",
+          fieldType: "name",
+          allowTextField: true
+        },
+        {
+          letter: "E",
+          colClass: "col-md-6",
+          label: "Picture of the keeper in whose name Licence to be issue",
+          component: "RHFFileUpload",
+          name: "licenseKeeperPicture",
+          allowedTypes: ["image/jpeg", "image/png", "application/pdf"],
+          maxSizeInMB: 1,
+          accept: ".jpg,.jpeg,.png,.pdf",
+          hasDownload: true,
+          downloadData: TradeData?.license_keeper_picture
+        },
+        {
+          letter: "F",
+          colClass: "col-md-6",
+          label: "Aadhar Number",
+          required: true,
+          component: "RHFTextField",
+          name: "aadharNumber",
+          type: "number",
+          maxLength: 12
+        },
+        {
+          letter: "G",
+          colClass: "col-md-6", 
+          label: "Picture of aadhar id",
+          component: "RHFFileUpload",
+          name: "aadharPicture",
+          allowedTypes: ["image/jpeg", "image/png", "application/pdf"],
+          maxSizeInMB: 1,
+          accept: ".jpg,.jpeg,.png,.pdf",
+          hasDownload: true,
+          downloadData: TradeData?.aadhar_picture
+        }
+      ]
     },
-    queryKey: ["informantDistrictData", informantState],
-  });
-
-  const { data: motherResidenceDistrictData } = useQuery({
-    queryFn: () => {
-      if (motherResidenceState !== "") {
-        return DistrictAPI({ id: motherResidenceState });
-      }
+    {
+      sectionNumber: "3",
+      title: "ESTABLISHMENT DETAILS",
+      fields: [
+        {
+          letter: "a",
+          colClass: "col-md-6",
+          label: "Name of Unit/Establishment",
+          required: true,
+          component: "RHFTextField",
+          name: "nameOfUnitEstablishment",
+          type: "text",
+          fieldType: "name",
+          allowTextField: true
+        },
+        {
+          letter: "b",
+          colClass: "col-md-6",
+          label: "Year of Establishment",
+          component: "RHFSelect",
+          name: "yearOfEstablishment",
+          className: "form-control mt-2 p-2",
+          options: Array.from({ length: 35 }, (_, i) => {
+            const year = moment().subtract(i, "years").year();
+            return { value: year.toString(), label: year.toString() };
+          })
+        },
+        {
+          letter: "c",
+          colClass: "col-md-6",
+          label: "GSTIN No.",
+          component: "RHFTextField",
+          name: "gstin",
+          fieldType: "number",
+          maxlength: 12
+        },
+        {
+          letter: "d",
+          colClass: "col-md-6",
+          label: "TIN No.",
+          component: "RHFTextField",
+          name: "tinNo",
+          type: "text",
+          maxLength: 12
+        },
+        {
+          letter: "E",
+          colClass: "col-md-6",
+          label: "Address of unit",
+          required: true,
+          component: "RHFTextarea",
+          name: "addressOfUnit"
+        },
+        {
+          letter: "F",
+          colClass: "col-md-6",
+          label: "Pan Card Number",
+          component: "RHFTextField",
+          name: "panCardNumber",
+          type: "text",
+          maxLength: 10
+        },
+        {
+          letter: "G",
+          colClass: "col-md-6",
+          label: "Area",
+          required: true,
+          component: "RHFSelect",
+          name: "areaId",
+          options: TradeAreaMasterdata || []
+        },
+        {
+          letter: "H",
+          colClass: "col-md-6",
+          label: "Locality",
+          component: "RHFTextField",
+          name: "locality",
+          type: "text"
+        },
+        {
+          letter: "H",
+          colClass: "col-md-6",
+          label: "Pincode",
+          required: true,
+          component: "RHFTextField",
+          name: "pincode",
+          type: "number",
+          maxLength: 6
+        },
+        {
+          letter: "H",
+          colClass: "col-md-6",
+          label: "E-Mail Id",
+          required: true,
+          component: "RHFTextField",
+          name: "emailId",
+          type: "email",
+          fieldType: "email",
+          maxLength: 50
+        },
+        {
+          letter: "I",
+          colClass: "col-md-6",
+          label: "Phone (Mobile)",
+          required: true,
+          component: "RHFTextField",
+          name: "phoneMobile",
+          type: "number",
+          inputMode: "numeric",
+          maxlength: 10
+        },
+        {
+          letter: "J",
+          colClass: "col-md-6",
+          label: "Electric Connection No.",
+          required: true,
+          component: "RHFTextField",
+          name: "electricConnectionNo",
+          type: "text",
+          maxlength: 15
+        },
+        {
+          letter: "K",
+          colClass: "col-md-6",
+          label: "Premises/Property No.",
+          required: true,
+          component: "RHFTextField",
+          name: "premisesPropertyNo",
+          type: "text",
+          maxlength: 15
+        },
+        {
+          letter: "L",
+          colClass: "col-md-6",
+          label: "Water Consume No.",
+          required: true,
+          component: "RHFTextField",
+          name: "waterConsumeNo",
+          type: "text",
+          fieldType: "number",
+          maxlength: 10
+        },
+        {
+          letter: "M",
+          colClass: "col-md-6",
+          label: "status of premises",
+          component: "RHFSelect",
+          name: "statusOfPremises",
+          options: TradePremisesStatusTypeData || []
+        },
+        {
+          letter: "N",
+          colClass: "col-md-6",
+          label: "Notified Road",
+          component: "RHFTextField",
+          name: "notifiedRoad",
+          type: "text"
+        },
+        {
+          letter: "O",
+          colClass: "col-md-6",
+          label: "Notified area",
+          component: "RHFTextField",
+          name: "notifiedArea",
+          type: "text"
+        }
+      ]
     },
-    queryKey: ["motherResidenceDistrictData", motherResidenceState],
-  });
-
-  // Tehsil queries for different address sections
-  const { data: parentBirthTimeTehsilData } = useQuery({
-    queryFn: () => {
-      if (parentBirthTimeDistrict !== "" && parentBirthTimeState !== "") {
-        return TehsilAPI({ dtcode11: parentBirthTimeDistrict, stcode11: parentBirthTimeState });
-      }
+    {
+      sectionNumber: "4",
+      title: "TYPE OF CONSTITUTION",
+      fields: [
+        {
+          letter: "A",
+          colClass: "col-md-6",
+          label: "Type of Constitution",
+          required: true,
+          component: "RHFSelect",
+          name: "constitutionType",
+          options: TradeConstitutionTtypedata || []
+        },
+        {
+          letter: "B",
+          colClass: "col-md-6",
+          label: "Property title",
+          component: "RHFSelect",
+          name: "propertyTitle",
+          options: TradePropertyTitledata || []
+        }
+      ],
+      hasPartnersTable: true
     },
-    queryKey: ["parentBirthTimeTehsilData", parentBirthTimeState, parentBirthTimeDistrict],
-  });
-
-  const { data: permanentAddressTehsilData } = useQuery({
-    queryFn: () => {
-      if (permanentAddressDistrict !== "" && permanentAddressState !== "") {
-        return TehsilAPI({ dtcode11: permanentAddressDistrict, stcode11: permanentAddressState });
-      }
+    {
+      sectionNumber: "5",
+      title: "PROPERTY DETAIL(UNDER USE IN BUSINESS)",
+      fields: [
+        {
+          letter: "A",
+          colClass: "col-md-6",
+          label: "Is the Structure Protected Under the Delhi Special Provision Act 2011/14.",
+          required: true,
+          component: "RHFCheckbox",
+          name: "specialProvisionAct2011And2014",
+          isSpecialCheckbox: true
+        },
+        {
+          letter: "B",
+          colClass: "col-md-6",
+          label: "Ownership",
+          required: true,
+          component: "RHFSelect",
+          name: "ownership",
+          options: TradeOwnershipMasterdata || []
+        }
+      ],
+      hasFloorsTable: true
     },
-    queryKey: ["permanentAddressTehsilData", permanentAddressState, permanentAddressDistrict],
-  });
+    {
+      sectionNumber: "6",
+      title: "CLASSIFICATION OF TRADE",
+      fields: [
+        {
+          letter: "A",
+          colClass: "col-md-6",
+          label: "Trade Description",
+          required: true,
+          component: "RHFSelect",
+          name: "tradeDescription",
+          options: TradeDiscriptionMasterdata || [],
+          onChange: (e) => setTradeDescription(e.target.value)
+        },
+        {
+          letter: "B",
+          colClass: "col-md-6",
+          label: "License Issue Under Section",
+          required: true,
+          component: "RHFPasswordField",
+          name: "licenseIssueUnderSection",
+          typeof: "text",
+          value: UnderSection,
+          disabled: true
+        }
+      ]
+    }
+  ];
 
-  const { data: placeOfBirthTehsilData } = useQuery({
-    queryFn: () => {
-      if (placeOfBirthDistrict !== "" && placeOfBirthState !== "") {
-        return TehsilAPI({ dtcode11: placeOfBirthDistrict, stcode11: placeOfBirthState });
-      }
-    },
-    queryKey: ["placeOfBirthTehsilData", placeOfBirthState, placeOfBirthDistrict],
-  });
+  const addPartner = () => {
+    setPartners([...partners, { partnerName: '', partnerAadharNumber: '', partnerAddress: '' }]);
+  };
 
-  const { data: informantTehsilData } = useQuery({
-    queryFn: () => {
-      if (informantDistrict !== "" && informantState !== "") {
-        return TehsilAPI({ dtcode11: informantDistrict, stcode11: informantState });
-      }
-    },
-    queryKey: ["informantTehsilData", informantState, informantDistrict],
-  });
+  const removePartner = (index, partner) => {
+    setPartners(partners.filter((_, i) => i !== index));
+  };
 
-  const { data: motherResidenceTehsilData } = useQuery({
-    queryFn: () => {
-      if (motherResidenceDistrict !== "" && motherResidenceState !== "") {
-        return TehsilAPI({ dtcode11: motherResidenceDistrict, stcode11: motherResidenceState });
-      }
-    },
-    queryKey: ["motherResidenceTehsilData", motherResidenceState, motherResidenceDistrict],
-  });
+  const addFloor = () => {
+    setFloors([...floors, { floorId: '', coveredAreaOfFloor: '', unitAreaInSquareMtr: '' }]);
+  };
 
-  // City queries for different address sections
-  const { data: parentBirthTimeCityData } = useQuery({
-    queryFn: () => {
-      if (parentBirthTimeState !== "" && parentBirthTimeDistrict !== "" && parentBirthTimeTehsil !== "") {
-        return CityAPI({
-          st_2011: parentBirthTimeState,
-          dt_2011: parentBirthTimeDistrict,
-          sdt_2011: parentBirthTimeTehsil,
-        });
-      }
-    },
-    queryKey: ["parentBirthTimeCityData", parentBirthTimeTehsil],
-  });
+  const removeFloor = (index, floor) => {
+    setFloors(floors.filter((_, i) => i !== index));
+  };
 
-  const { data: permanentAddressCityData } = useQuery({
-    queryFn: () => {
-      if (permanentAddressState !== "" && permanentAddressDistrict !== "" && permanentAddressTehsil !== "") {
-        return CityAPI({
-          st_2011: permanentAddressState,
-          dt_2011: permanentAddressDistrict,
-          sdt_2011: permanentAddressTehsil,
-        });
-      }
-    },
-    queryKey: ["permanentAddressCityData", permanentAddressTehsil],
-  });
+  const renderFieldComponent = (field) => {
+    const baseProps = {
+      name: field.name,
+      label: field.component === "RHFFileUpload" ? field.name : `${field.label}${field.required ? ' *' : ''}`,
+      ...(field.type && { type: field.type }),
+      ...(field.maxLength && { maxLength: field.maxLength }),
+      ...(field.maxlength && { maxlength: field.maxlength }),
+      ...(field.fieldType && { fieldType: field.fieldType }),
+      ...(field.allowTextField && { allowTextField: field.allowTextField }),
+      ...(field.inputMode && { inputMode: field.inputMode }),
+      ...(field.options && { options: field.options }),
+      ...(field.onChange && { onChange: field.onChange }),
+      ...(field.className && { className: field.className }),
+      ...(field.maxDateToday && { maxDateToday: field.maxDateToday }),
+      ...(field.allowedTypes && { allowedTypes: field.allowedTypes }),
+      ...(field.maxSizeInMB && { maxSizeInMB: field.maxSizeInMB }),
+      ...(field.accept && { accept: field.accept }),
+      ...(field.value && { value: field.value }),
+      ...(field.disabled && { disabled: field.disabled }),
+      ...(field.typeof && { typeof: field.typeof })
+    };
 
-  const { data: placeOfBirthCityData } = useQuery({
-    queryFn: () => {
-      if (placeOfBirthState !== "" && placeOfBirthDistrict !== "" && placeOfBirthTehsil !== "") {
-        return CityAPI({
-          st_2011: placeOfBirthState,
-          dt_2011: placeOfBirthDistrict,
-          sdt_2011: placeOfBirthTehsil,
-        });
-      }
-    },
-    queryKey: ["placeOfBirthCityData", placeOfBirthTehsil],
-  });
-
-  const { data: informantCityData } = useQuery({
-    queryFn: () => {
-      if (informantState !== "" && informantDistrict !== "" && informantTehsil !== "") {
-        return CityAPI({
-          st_2011: informantState,
-          dt_2011: informantDistrict,
-          sdt_2011: informantTehsil,
-        });
-      }
-    },
-    queryKey: ["informantCityData", informantTehsil],
-  });
-
-  const { data: motherResidenceCityData } = useQuery({
-    queryFn: () => {
-      if (motherResidenceState !== "" && motherResidenceDistrict !== "" && motherResidenceTehsil !== "") {
-        return CityAPI({
-          st_2011: motherResidenceState,
-          dt_2011: motherResidenceDistrict,
-          sdt_2011: motherResidenceTehsil,
-        });
-      }
-    },
-    queryKey: ["motherResidenceCityData", motherResidenceTehsil],
-  });
-
-  // Handle same as permanent address checkbox
-  const handleSameAsPermanentAddress = (checked: boolean) => {
-    setSameAsPermanentAddress(checked);
-    if (checked) {
-      setValue("parentAddressAtBirthTimeLocality", watch("permanentAddressOfParentLocality"));
-      setValue("parentAddressAtBirthTimeWardNumber", watch("permanentAddressOfParentWardNumber"));
-      setValue("parentAddressAtBirthTimeTownVillageId", watch("permanentAddressOfParentTownVillageId"));
-      setValue("parentAddressAtBirthTimeSubdistrictId", watch("permanentAddressOfParentSubdistrictId"));
-      setValue("parentAddressAtBirthTimeDistrictId", watch("permanentAddressOfParentDistrictId"));
-      setValue("parentAddressAtBirthTimeStateUtId", watch("permanentAddressOfParentStateUtId"));
-      setValue("parentAddressAtBirthTimePincode", watch("permanentAddressOfParentPincode"));
-      
-      setParentBirthTimeState(permanentAddressState);
-      setParentBirthTimeDistrict(permanentAddressDistrict);
-      setParentBirthTimeTehsil(permanentAddressTehsil);
-    } else {
-      setValue("parentAddressAtBirthTimeLocality", "");
-      setValue("parentAddressAtBirthTimeWardNumber", "");
-      setValue("parentAddressAtBirthTimeTownVillageId", "");
-      setValue("parentAddressAtBirthTimeSubdistrictId", "");
-      setValue("parentAddressAtBirthTimeDistrictId", "");
-      setValue("parentAddressAtBirthTimeStateUtId", "");
-      setValue("parentAddressAtBirthTimePincode", null);
-      
-      setParentBirthTimeState("");
-      setParentBirthTimeDistrict("");
-      setParentBirthTimeTehsil("");
+    switch (field.component) {
+      case "RHFRadioGroup":
+        return <RHFRadioGroup {...baseProps} />;
+      case "RHFTextField":
+        return <RHFTextField {...baseProps} />;
+      case "RHFTextarea":
+        return <RHFTextarea {...baseProps} />;
+      case "RHFDatePicker":
+        return <RHFDatePicker {...baseProps} />;
+      case "RHFSelect":
+        return <RHFSelect {...baseProps} />;
+      case "RHFFileUpload":
+        return <RHFFileUpload {...baseProps} />;
+      case "RHFCheckbox":
+        return <RHFCheckbox {...baseProps} />;
+      case "RHFPasswordField":
+        return <RHFPasswordField {...baseProps} />;
+      default:
+        return null;
     }
   };
 
-  const { mutate: postBirthCertificateData } = useMutation({
-    mutationFn: birthCertificateRegistrationPostData,
-    onSuccess: (res: any) => {
-      toast("Data saved successfully!");
-      reset();
-      setTimeout(() => {
-        setShowSuccess(true);
-        setIsSubmitDisabled(false);
-        setTimeout(() => {
-          setShowSuccess(false);
-        }, 3000);
-      }, 1000);
-    },
-    onError: (error) => {
-      console.error("Error saving birth registration data:", error);
-      toast.error("Error saving data. Please try again.");
-    },
-  });
-
-  const onSubmit = (data: BirthRegistrationForm) => {
-    console.log("Birth registration data:", data);
-    postBirthCertificateData(data);
-    clearUserStore();
+  const renderFileUploadWithDownload = (field) => {
+    const hasExistingFile = field.downloadData && field.downloadData !== "" && field.downloadData !== null;
+    
+    return (
+      <div className="col-md-8">
+        <div className="col-md-8">
+          <div className=" d-flex">
+            {hasExistingFile ? (
+              <>
+                <a
+                  onClick={() => {
+                    postbirthCertificateDatafn2({
+                      id: field.downloadData,
+                    });
+                  }}
+                  className="text-primary d-flex align-items-center mt-2"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path
+                      stroke="none"
+                      d="M0 0h24v24H0z"
+                      fill="none"
+                    />
+                    <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+                    <path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" />
+                    <path d="M12 17v-6" />
+                    <path d="M9.5 14.5l2.5 2.5l2.5 -2.5" />
+                  </svg>
+                </a>
+                <span>
+                  {renderFieldComponent(field)}
+                </span>
+              </>
+            ) : (
+              <div className="col-md-12">
+                {renderFieldComponent(field)}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   };
 
-  const handleConfirmSubmit = () => {
-    setShowConfirmation(true);
+  // Render individual field
+  const renderField = (field) => {
+    if (field.isSpecialCheckbox) {
+      return (
+        <div key={field.name} className={field.colClass}>
+          <div className="row align-items-center mb-3">
+            <div className="col-md-1">
+              <label className="form-label mb-md-0">({field.letter})</label>
+            </div>
+            <div className="col-md-8">
+              <label className="form-label mb-md-0">
+                {field.label}{field.required && <span style={{ color: "red" }}>&nbsp;*</span>}
+              </label>
+            </div>
+            <div className="col-md-2">
+              {renderFieldComponent(field)}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div key={field.name} className={field.colClass}>
+        <div className="row align-items-center mb-3">
+          <div className="col-md-1">
+            <label className="form-label mb-md-0">({field.letter})</label>
+          </div>
+          <div className="col-md-3">
+            <label className="form-label mb-md-0">
+              {field.label}{field.required && <span style={{ color: "red" }}>&nbsp;*</span>}
+            </label>
+          </div>
+          {field.hasDownload ? 
+            renderFileUploadWithDownload(field) :
+            <div className="col-md-8">
+              {renderFieldComponent(field)}
+            </div>
+          }
+        </div>
+      </div>
+    );
   };
 
-  const confirmSubmit = () => {
-    setShowConfirmation(false);
-    handleSubmit(onSubmit)();
-  };
+  // Render license type field
+  const renderLicenseTypeField = () => (
+    <div className={licenseTypeField.colClass}>
+      <div className="row align-items-center mb-3">
+        <div className="col-md-1">
+          <label className="form-label mb-md-0">{licenseTypeField.number}.</label>
+        </div>
+        <div className={licenseTypeField.labelColClass}>
+          <label className="form-label mb-md-0">
+            {licenseTypeField.label}{licenseTypeField.required && <span style={{ color: "red" }}>&nbsp;*</span>}
+          </label>
+        </div>
+        <div className={licenseTypeField.inputColClass}>
+          {renderFieldComponent(licenseTypeField)}
+        </div>
+      </div>
+    </div>
+  );
 
-  const genderOptions = [
-    { value: 1, label: "Male" },
-    { value: 2, label: "Female" },
-    { value: 3, label: "Transgender" }
-  ];
+  // Render section header
+  const renderSectionHeader = (section) => (
+    <div key={`header-${section.sectionNumber}`} className="col-md-12">
+      <div className="row align-items-center mb-3 title-background text-center">
+        <div className="col-md-1">
+          <label className="form-label mb-md-0"></label>
+        </div>
+        <div className="col-md-11">
+          <label className="form-label mb-md-0">{section.sectionNumber}.{section.title}</label>
+          {section.subtitle && (
+            <label className="mb-md-0">&nbsp;{section.subtitle}</label>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
-  const placeOfBirthOptions = [
-    { value: "1", label: "Hospital" },
-    { value: "2", label: "House" },
-    { value: "3", label: "Other" }
-  ];
+  // Render partners table
+  const renderPartnersTable = () => (
+    <div key="partners-table" className="w-full mb-4 col-md-12">
+      <h3 className="w-full font-medium mb-2">Partners Information</h3>
+      <div className="w-full">
+        <table className="w-full border border-gray-300" style={{ width: "100%" }}>
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border border-gray-300 p-2 text-left">S.No.</th>
+              <th className="border border-gray-300 p-2 text-left">Name</th>
+              <th className="border border-gray-300 p-2 text-left">Voter ID/Aadhaar No</th>
+              <th className="border border-gray-300 p-2 text-left">Address</th>
+              <th className="border border-gray-300 p-2 text-left">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {partners.map((partner, index) => (
+              <tr key={index}>
+                <td className="border border-gray-300 p-2">{index + 1}</td>
+                <td className="border border-gray-300 p-2">
+                  <RHFTextField
+                    name={`partners.${index}.partnerName`}
+                    label=""
+                    type="text"
+                    fieldType="name"
+                    allowTextField={true}
+                  />
+                </td>
+                <td className="border border-gray-300 p-2">
+                  <RHFTextField
+                    name={`partners.${index}.partnerAadharNumber`}
+                    label=""
+                    type="number"
+                    maxLength={12}
+                  />
+                </td>
+                <td className="border border-gray-300 p-2">
+                  <RHFTextarea name={`partners.${index}.partnerAddress`} label="" />
+                </td>
+                <td className="border border-gray-300 p-2">
+                  {partners.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removePartner(index, partner)}
+                      className="submit-btn btn btn-danger btn-md me-2 mb-4 mt-1"
+                    >
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <button
+        type="button"
+        onClick={addPartner}
+        className="submit-btn btn btn-secondary btn-md me-2 mb-4 mt-1"
+      >
+        Add Partner
+      </button>
+    </div>
+  );
 
-  const typeOfAttentionOptions = [
-    { value: 1, label: "Institutional-Government" },
-    { value: 2, label: "Institutional-Private" },
-    { value: 3, label: "Doctor/Nurse" },
-    { value: 4, label: "Traditional Attendant" },
-    { value: 5, label: "Relatives/Others" }
-  ];
+  // Render floors table
+  const renderFloorsTable = () => (
+    <div key="floors-table" className="mb-4 col-md-12">
+      <div className="overflow-x-auto">
+        <table className="w-full border border-gray-300" style={{ width: "100%" }}>
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border border-gray-300 p-2 text-left">S.No.</th>
+              <th className="border border-gray-300 p-2 text-left">Floor Name</th>
+              <th className="border border-gray-300 p-2 text-left">Covered Area of Floor</th>
+              <th className="border border-gray-300 p-2 text-left">Unit Area in Square Mtr.</th>
+              <th className="border border-gray-300 p-2 text-left">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {floors.map((floor, index) => (
+              <tr key={index}>
+                <td className="border border-gray-300 p-2">{index + 1}</td>
+                <td className="border border-gray-300 p-2">
+                  <RHFSelect
+                    name={`floors.${index}.floorId`}
+                    label=""
+                    options={TradeFloorMasterdata || []}
+                  />
+                </td>
+                <td className="border border-gray-300 p-2">
+                  <RHFTextField
+                    name={`floors.${index}.coveredAreaOfFloor`}
+                    label=""
+                    typeof="text"
+                  />
+                </td>
+                <td className="border border-gray-300 p-2">
+                  <RHFTextField
+                    name={`floors.${index}.unitAreaInSquareMtr`}
+                    label=""
+                    typeof="text"
+                  />
+                </td>
+                <td className="border bg-red p-2">
+                  {floors.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeFloor(index, floor)}
+                      className="submit-btn btn btn-danger btn-md me-2 mb-4 mt-1"
+                    >
+                      <RiDeleteBin5Line />
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <button
+        type="button"
+        onClick={addFloor}
+        className="submit-btn btn btn-secondary btn-md me-2 mb-4 mt-1"
+      >
+        Add Floor
+      </button>
+    </div>
+  );
 
-  const methodOfDeliveryOptions = [
-    { value: 1, label: "Natural" },
-    { value: 2, label: "Caesarean" },
-    { value: 3, label: "Forceps/Vacuum" }
-  ];
+  const RHFRadioGroup = ({ name, label, options }) => (
+    <div>
+      {options.map((option, idx) => (
+        <div key={idx} className="form-check">
+          <input className="form-check-input" type="radio" name={name} value={option.value} />
+          <label className="form-check-label">{option.label}</label>
+        </div>
+      ))}
+    </div>
+  );
 
-  useEffect(() => {
-    setDate(moment().format("YYYY-MM-DD"));
-  }, []);
+  const RHFTextField = ({ name, label, type = "text", maxLength, fieldType, allowTextField, inputMode, maxlength }) => (
+    <input 
+      className="form-control" 
+      type={type} 
+      name={name} 
+      placeholder={label}
+      maxLength={maxLength || maxlength}
+      inputMode={inputMode}
+    />
+  );
+
+  const RHFTextarea = ({ name, label }) => (
+    <textarea className="form-control" name={name} placeholder={label}></textarea>
+  );
+
+  const RHFDatePicker = ({ name, label, maxDateToday }) => (
+    <input className="form-control" type="date" name={name} placeholder={label} />
+  );
+
+  const RHFSelect = ({ name, label, options = [], onChange, className }) => (
+    <select className={className || "form-control"} name={name} onChange={onChange}>
+      <option value="">{label}</option>
+      {options.map((option, idx) => (
+        <option key={idx} value={option.value}>{option.label}</option>
+      ))}
+    </select>
+  );
+
+  const RHFFileUpload = ({ name, label, allowedTypes, maxSizeInMB, accept }) => (
+    <input className="form-control" type="file" name={name} accept={accept} />
+  );
+
+  const RHFCheckbox = ({ name, label }) => (
+    <div className="form-check">
+      <input className="form-check-input" type="checkbox" name={name} />
+      <label className="form-check-label">{label}</label>
+    </div>
+  );
+
+  const RHFPasswordField = ({ name, label, value, disabled, typeof }) => (
+    <input 
+      className="form-control" 
+      type="text" 
+      name={name} 
+      value={value}
+      disabled={disabled}
+      placeholder={label}
+    />
+  );
 
   return (
-  
-   <>
-      <div className="card">
-        <FormProvider methods={methods} onSubmit={handleSubmit(onSubmit)}>
-          
-          {/* Child Information Section */}
-          <div className="border-bottom mb-3">
-            <h4 className="mb-3">Child Information</h4>
-            <div className="row">
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Child's Date of Birth *</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFDatePicker
-                      name="childDateOfBirth"
-                      label="Child's Date of Birth"
-                      className="form-control"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Sex *</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="childGenderId"
-                      label="Sex"
-                      className="form-control"
-                      options={genderOptions}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Child's Full Name *</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="childName"
-                      label="Child's Full Name"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Child's Aadhaar Number</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="childAadhaarNumber"
-                      label="Child's Aadhaar Number"
-                      type="number"
-                      maxlength={12}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Father's Details Section */}
-          <div className="border-bottom mb-3">
-            <h4 className="mb-3">Father's Details</h4>
-            <div className="row">
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Father's Name *</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="fatherName"
-                      label="Father's Name"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Father's Aadhaar *</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="fatherAadhaarNumber"
-                      label="Father's Aadhaar Number"
-                      type="number"
-                      maxlength={12}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Father's Mobile *</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="fatherMobileNumber"
-                      label="Father's Mobile Number"
-                      type="number"
-                      maxlength={10}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Father's Email</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="fatherEmailId"
-                      label="Father's Email ID"
-                      type="email"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Father's Religion</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="fatherReligionId"
-                      label="Father's Religion"
-                      className="form-control"
-                      options={(religionData && religionData) || []}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Father's Education</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="fatherEducationId"
-                      label="Father's Education"
-                      className="form-control"
-                      options={(educationData && educationData) || []}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Father's Occupation</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="fatherOccupationId"
-                      label="Father's Occupation"
-                      className="form-control"
-                      options={(occupationData && occupationData) || []}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Mother's Details Section */}
-          <div className="border-bottom mb-3">
-            <h4 className="mb-3">Mother's Details</h4>
-            <div className="row">
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Mother's Name *</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="motherName"
-                      label="Mother's Name"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Mother's Aadhaar *</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="motherAadhaarNumber"
-                      label="Mother's Aadhaar Number"
-                      type="number"
-                      maxlength={12}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Mother's Mobile *</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="motherMobileNumber"
-                      label="Mother's Mobile Number"
-                      type="number"
-                      maxlength={10}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Mother's Email</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="motherEmailId"
-                      label="Mother's Email ID"
-                      type="email"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Mother's Religion</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="motherReligionId"
-                      label="Mother's Religion"
-                      className="form-control"
-                      options={(religionData && religionData) || []}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Mother's Education</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="motherEducationId"
-                      label="Mother's Education"
-                      className="form-control"
-                      options={(educationData && educationData) || []}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Mother's Occupation</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="motherOccupationId"
-                      label="Mother's Occupation"
-                      className="form-control"
-                      options={(occupationData && occupationData) || []}
-                    />
-                  </div>
-                </div>
-              </div>
-
-
-
-
-                    <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Mother's Age at Marriage</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="motherAgeAtTimeOfMarriage"
-                      label="Mother's Age at Marriage"
-                      type="number"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Mother's Age at Birth</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="motherAgeAtTimeOfBirth"
-                      label="Mother's Age at Birth"
-                      type="number"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Number of Children</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="numberOfChildren"
-                      label="Number of Children"
-                      type="number"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Mother's Residence Section */}
-          <div className="border-bottom mb-3">
-            <h4 className="mb-3">Mother's Residence</h4>
-            <div className="row">
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Town/Village</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="residenceOfMotherTownVillage"
-                      label="Mother's Residence Town/Village"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">State</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="residenceOfMotherStateUtId"
-                      label="Mother's Residence State"
-                      className="form-control"
-                      options={(stateData && stateData) || []}
-                      onChange={(e) => {
-                        setMotherResidenceState(e.target.value);
-                        setValue("residenceOfMotherDistrictId", "");
-                        setValue("residenceOfMotherSubdistrictId", "");
-                        setMotherResidenceDistrict("");
-                        setMotherResidenceTehsil("");
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">District</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="residenceOfMotherDistrictId"
-                      label="Mother's Residence District"
-                      className="form-control"
-                      options={(motherResidenceDistrictData && motherResidenceDistrictData) || []}
-                      onChange={(e) => {
-                        setMotherResidenceDistrict(e.target.value);
-                        setValue("residenceOfMotherSubdistrictId", "");
-                        setMotherResidenceTehsil("");
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Sub-district</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="residenceOfMotherSubdistrictId"
-                      label="Mother's Residence Sub-district"
-                      className="form-control"
-                      options={(motherResidenceTehsilData && motherResidenceTehsilData) || []}
-                      onChange={(e) => {
-                        setMotherResidenceTehsil(e.target.value);
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Pincode</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="residenceOfMotherPincode"
-                      label="Mother's Residence Pincode"
-                      type="number"
-                      maxlength={6}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Permanent Address of Parents Section */}
-          <div className="border-bottom mb-3">
-            <h4 className="mb-3">Permanent Address of Parents</h4>
-            <div className="row">
-              <div className="col-md-12 mb-3">
-                <RHFCheckbox
-                  name="sameAsPermanentAddress"
-                  label="Same as above address"
-                  onChange={(e) => handleSameAsPermanentAddress(e.target.checked)}
-                />
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Locality</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="permanentAddressOfParentLocality"
-                      label="Permanent Address Locality"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Ward Number</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="permanentAddressOfParentWardNumber"
-                      label="Permanent Address Ward Number"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">State</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="permanentAddressOfParentStateUtId"
-                      label="Permanent Address State"
-                      className="form-control"
-                      options={(stateData && stateData) || []}
-                      onChange={(e) => {
-                        setPermanentAddressState(e.target.value);
-                        setValue("permanentAddressOfParentDistrictId", "");
-                        setValue("permanentAddressOfParentSubdistrictId", "");
-                        setValue("permanentAddressOfParentTownVillageId", "");
-                        setPermanentAddressDistrict("");
-                        setPermanentAddressTehsil("");
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">District</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="permanentAddressOfParentDistrictId"
-                      label="Permanent Address District"
-                      className="form-control"
-                      options={(permanentAddressDistrictData && permanentAddressDistrictData) || []}
-                      onChange={(e) => {
-                        setPermanentAddressDistrict(e.target.value);
-                        setValue("permanentAddressOfParentSubdistrictId", "");
-                        setValue("permanentAddressOfParentTownVillageId", "");
-                        setPermanentAddressTehsil("");
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Sub-district</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="permanentAddressOfParentSubdistrictId"
-                      label="Permanent Address Sub-district"
-                      className="form-control"
-                      options={(permanentAddressTehsilData && permanentAddressTehsilData) || []}
-                      onChange={(e) => {
-                        setPermanentAddressTehsil(e.target.value);
-                        setValue("permanentAddressOfParentTownVillageId", "");
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Town/Village</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="permanentAddressOfParentTownVillageId"
-                      label="Permanent Address Town/Village"
-                      className="form-control"
-                      options={(permanentAddressCityData && permanentAddressCityData) || []}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Pincode</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="permanentAddressOfParentPincode"
-                      label="Permanent Address Pincode"
-                      type="number"
-                      maxlength={6}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Parent Address at Birth Time Section */}
-          <div className="border-bottom mb-3">
-            <h4 className="mb-3">Parent Address at Birth Time</h4>
-            <div className="row">
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Locality</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="parentAddressAtBirthTimeLocality"
-                      label="Birth Time Address Locality"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Ward Number</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="parentAddressAtBirthTimeWardNumber"
-                      label="Birth Time Address Ward Number"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">State</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="parentAddressAtBirthTimeStateUtId"
-                      label="Birth Time Address State"
-                      className="form-control"
-                      options={(stateData && stateData) || []}
-                      onChange={(e) => {
-                        setParentBirthTimeState(e.target.value);
-                        setValue("parentAddressAtBirthTimeDistrictId", "");
-                        setValue("parentAddressAtBirthTimeSubdistrictId", "");
-                        setValue("parentAddressAtBirthTimeTownVillageId", "");
-                        setParentBirthTimeDistrict("");
-                        setParentBirthTimeTehsil("");
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">District</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="parentAddressAtBirthTimeDistrictId"
-                      label="Birth Time Address District"
-                      className="form-control"
-                      options={(parentBirthTimeDistrictData && parentBirthTimeDistrictData) || []}
-                      onChange={(e) => {
-                        setParentBirthTimeDistrict(e.target.value);
-                        setValue("parentAddressAtBirthTimeSubdistrictId", "");
-                        setValue("parentAddressAtBirthTimeTownVillageId", "");
-                        setParentBirthTimeTehsil("");
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Sub-district</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="parentAddressAtBirthTimeSubdistrictId"
-                      label="Birth Time Address Sub-district"
-                      className="form-control"
-                      options={(parentBirthTimeTehsilData && parentBirthTimeTehsilData) || []}
-                      onChange={(e) => {
-                        setParentBirthTimeTehsil(e.target.value);
-                        setValue("parentAddressAtBirthTimeTownVillageId", "");
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Town/Village</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="parentAddressAtBirthTimeTownVillageId"
-                      label="Birth Time Address Town/Village"
-                      className="form-control"
-                      options={(parentBirthTimeCityData && parentBirthTimeCityData) || []}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Pincode</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="parentAddressAtBirthTimePincode"
-                      label="Birth Time Address Pincode"
-                      type="number"
-                      maxlength={6}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Place of Birth Section */}
-          <div className="border-bottom mb-3">
-            <h4 className="mb-3">Place of Birth</h4>
-            <div className="row">
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Place of Birth *</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="placeOfBirthId"
-                      label="Place of Birth"
-                      className="form-control"
-                      options={placeOfBirthOptions}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {watch("placeOfBirthId") === "1" && (
-                <div className="col-md-6">
-                  <div className="row align-items-center mb-3">
-                    <div className="col-md-4">
-                      <label className="form-label mb-md-0">Hospital</label>
-                    </div>
-                    <div className="col-md-8">
-                      <RHFSelect
-                        name="hospitalId"
-                        label="Hospital"
-                        className="form-control"
-                        options={(hospitalData && hospitalData) || []}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">House No</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="placeOfBirthHouseNo"
-                      label="Place of Birth House No"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Locality</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="placeOfBirthLocality"
-                      label="Place of Birth Locality"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Ward Number</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="placeOfBirthWardNumber"
-                      label="Place of Birth Ward Number"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">State</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="placeOfBirthStateUtId"
-                      label="Place of Birth State"
-                      className="form-control"
-                      options={(stateData && stateData) || []}
-                      onChange={(e) => {
-                        setPlaceOfBirthState(e.target.value);
-                        setValue("placeOfBirthDistrictId", "");
-                        setValue("placeOfBirthSubdistrictId", "");
-                        setValue("placeOfBirthTownVillageId", "");
-                        setPlaceOfBirthDistrict("");
-                        setPlaceOfBirthTehsil("");
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">District</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="placeOfBirthDistrictId"
-                      label="Place of Birth District"
-                      className="form-control"
-                      options={(placeOfBirthDistrictData && placeOfBirthDistrictData) || []}
-                      onChange={(e) => {
-                        setPlaceOfBirthDistrict(e.target.value);
-                        setValue("placeOfBirthSubdistrictId", "");
-                        setValue("placeOfBirthTownVillageId", "");
-                        setPlaceOfBirthTehsil("");
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Sub-district</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="placeOfBirthSubdistrictId"
-                      label="Place of Birth Sub-district"
-                      className="form-control"
-                      options={(placeOfBirthTehsilData && placeOfBirthTehsilData) || []}
-                      onChange={(e) => {
-                        setPlaceOfBirthTehsil(e.target.value);
-                        setValue("placeOfBirthTownVillageId", "");
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Town/Village</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="placeOfBirthTownVillageId"
-                      label="Place of Birth Town/Village"
-                      className="form-control"
-                      options={(placeOfBirthCityData && placeOfBirthCityData) || []}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Pincode</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="placeOfBirthPincode"
-                      label="Place of Birth Pincode"
-                      type="number"
-                      maxlength={6}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Informant Details Section */}
-          <div className="border-bottom mb-3">
-            <h4 className="mb-3">Informant Details</h4>
-            <div className="row">
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Informant's Name *</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="informantsName"
-                      label="Informant's Name"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Informant's Aadhaar</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="informantsAadhaarNumber"
-                      label="Informant's Aadhaar Number"
-                      type="number"
-                      maxlength={12}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Informant's Mobile *</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="informantsMobileNumber"
-                      label="Informant's Mobile Number"
-                      type="number"
-                      maxlength={10}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Informant's Email</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="informantsEmailId"
-                      label="Informant's Email ID"
-                      type="email"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">House No</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="informantsHouseNo"
-                      label="Informant's House No"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Locality</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="informantsLocality"
-                      label="Informant's Locality"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Ward Number</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="informantsWardNumber"
-                      label="Informant's Ward Number"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">State</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      className="form-control"
-                      label="Informant's State"
-                      name="informantsStateUtId"
-                      options={(stateData && stateData) || []}
-                      onChange={(e) => {
-                        setInformantState(e.target.value);
-                        setValue("informantsDistrictId", "");
-                        setValue("informantsSubdistrictId", "");
-                        setValue("informantsTownVillageId", "");
-                        setInformantDistrict("");
-                        setInformantTehsil("");
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">District</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="informantsDistrictId"
-                      label="Informant's District"
-                      className="form-control"
-                      options={(informantDistrictData && informantDistrictData) || []}
-                      onChange={(e) => {
-                        setInformantDistrict(e.target.value);
-                        setValue("informantsSubdistrictId", "");
-                        setValue("informantsTownVillageId", "");
-                        setInformantTehsil("");
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-             <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Sub-district</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      className="form-control"
-                      name="informantsSubdistrictId"
-                      label="Informant's Sub-district"
-                      options={(informantTehsilData && informantTehsilData) || []}
-                      onChange={(e) => {
-                        setInformantTehsil(e.target.value);
-                        setValue("informantsTownVillageId", "");
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Town/Village</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="informantsTownVillageId"
-                      label="Informant's Town/Village"
-                      className="form-control"
-                      options={(informantCityData && informantCityData) || []}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Pincode</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="informantsPincode"
-                      label="Informant's Pincode"
-                      type="number"
-                      maxlength={6}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Relation to Child</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="relationToChildId"
-                      label="Relation to Child"
-                      className="form-control"
-                      options={(religionData && religionData) || []}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-
-          {/* Birth Details Section */}
-         <div className="border-bottom mb-3">
-            <h4 className="mb-3">Birth Details</h4>
-            <div className="row">
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Type of Attention</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="typeOfAttentionId"
-                      label="Type of Attention"
-                      className="form-control"
-                      options={(typeOfAttentionOptions && typeOfAttentionOptions) || []}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Method of Delivery</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFSelect
-                      name="methodOfDeliveryId"
-                      label="Method of Delivery"
-                      className="form-control"
-                      options={(methodOfDeliveryOptions && methodOfDeliveryOptions) || []}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Child Birth Weight (kg)</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="childBirthWeight"
-                      label="Child Birth Weight"
-                      type="number"
-                      step="0.01"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Duration of Pregnancy (weeks)</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFTextField
-                      className="form-control"
-                      name="durationOfPregnancy"
-                      label="Duration of Pregnancy"
-                      type="number"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Document Upload Section */}
-          <div className="border-bottom mb-3">
-            <h4 className="mb-3">Document Upload</h4>
-            <div className="row">
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Father's Aadhaar Proof</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFFileUpload
-                      name="fatherAadhaarProof"
-                      label="Father's Aadhaar Proof"
-                      allowedTypes={[
-                        "image/jpeg",
-                        "image/png",
-                        "application/pdf",
-                      ]}
-                      maxSizeInMB={1}
-                      accept=".jpg,.jpeg,.png,.pdf"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Mother's Aadhaar Proof</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFFileUpload
-                      name="motherAadhaarProof"
-                      label="Mother's Aadhaar Proof"
-                      allowedTypes={[
-                        "image/jpeg",
-                        "image/png",
-                        "application/pdf",
-                      ]}
-                      maxSizeInMB={1}
-                      accept=".jpg,.jpeg,.png,.pdf"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Child's Aadhaar Proof</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFFileUpload
-                      name="childAadhaarProof"
-                      label="Child's Aadhaar Proof"
-                      allowedTypes={[
-                        "image/jpeg",
-                        "image/png",
-                        "application/pdf",
-                      ]}
-                      maxSizeInMB={1}
-                      accept=".jpg,.jpeg,.png,.pdf"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Hospital Discharge Certificate</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFFileUpload
-                      name="hospitalDischargeCertificate"
-                      label="Hospital Discharge Certificate"
-                      allowedTypes={[
-                        "image/jpeg",
-                        "image/png",
-                        "application/pdf",
-                      ]}
-                      maxSizeInMB={1}
-                      accept=".jpg,.jpeg,.png,.pdf"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Witness Proof 1</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFFileUpload
-                      name="witnessProof1"
-                      label="witnessProof1"
-                      allowedTypes={[
-                        "image/jpeg",
-                        "image/png",
-                        "application/pdf",
-                      ]}
-                      maxSizeInMB={1}
-                      accept=".jpg,.jpeg,.png,.pdf"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Witness Proof 2</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFFileUpload
-                      name="witnessProof2"
-                      label="Witness Proof 2"
-                      allowedTypes={[
-                        "image/jpeg",
-                        "image/png",
-                        "application/pdf",
-                      ]}
-                      maxSizeInMB={1}
-                      accept=".jpg,.jpeg,.png,.pdf"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Marriage Certificate</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFFileUpload
-                      name="marriageCertificate"
-                      label="Marriage Certificate"
-                      allowedTypes={[
-                        "image/jpeg",
-                        "image/png",
-                        "application/pdf",
-                      ]}
-                      maxSizeInMB={1}
-                      accept=".jpg,.jpeg,.png,.pdf"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="row align-items-center mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label mb-md-0">Address Proof</label>
-                  </div>
-                  <div className="col-md-8">
-                    <RHFFileUpload
-                      name="addressProof"
-                      label="Address Proof"
-                      allowedTypes={[
-                        "image/jpeg",
-                        "image/png",
-                        "application/pdf",
-                      ]}
-                      maxSizeInMB={1}
-                      accept=".jpg,.jpeg,.png,.pdf"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Declaration Section */}
-          <div className="border-bottom mb-3">
-            <h4 className="mb-3">Declaration</h4>
-            <div className="row">
-              <div className="col-md-12">
-                <RHFCheckbox
-                  name="declaration"
-                  label="I hereby declare that the information provided above is true and correct to the best of my knowledge and belief. I understand that any false information may lead to rejection of the application or cancellation of the certificate issued."
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Form Actions */}
-          <div className="row">
-            <div className="col-md-12 text-center">
-              <button
-                type="button"
-                className="btn btn-secondary me-3"
-                onClick={() => navigate(-1)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={handleConfirmSubmit}
-                disabled={isSubmitting || isSubmitDisabled}
-              >
-                {isSubmitting ? "Submitting..." : "Submit Application"}
-              </button>
-            </div>
-          </div>
-        
-      </FormProvider>
+    <div className="row">
+      <span className="row text-center mb-12">
+        <b>Health License Registration Form</b>
+      </span>
+
+      {renderLicenseTypeField()}
+
+      {watch("licenseTypeId") == 2 && renewalFields.map(renderField)}
+
+      {formSections.map((section) => [
+        renderSectionHeader(section),
+        section.fields.map(renderField),
+        section.hasPartnersTable && renderPartnersTable(),
+        section.hasFloorsTable && renderFloorsTable()
+      ])}
     </div>
-    </>
   );
 };
 
-export default BirthRegistrationFormComponent;
+export default HealthLicenseForm;
